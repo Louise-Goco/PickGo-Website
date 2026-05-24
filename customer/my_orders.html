@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .page-container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        .orders-header { margin-top: 40px; margin-bottom: 30px; }
+        .orders-header h1 { font-size: 32px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0; }
+        .tabs { display: flex; gap: 32px; border-bottom: 1px solid #e2e8f0; margin-bottom: 32px; }
+        .tab { padding: 12px 0; font-size: 16px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; text-decoration: none; }
+        .tab.active { color: #f97316; border-bottom-color: #f97316; }
+        .orders-section { display: none; }
+        .orders-section.active { display: block; }
+        .order-card { background: #fff; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .order-header { padding: 20px 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #fafafa; flex-wrap: wrap; gap: 12px; }
+        .order-status-badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .status-preparing { background: #e0f2fe; color: #0369a1; }
+        .status-ready { background: #fef9c3; color: #854d0e; }
+        .status-delivery { background: #dbeafe; color: #1e40af; }
+        .status-completed { background: #dcfce7; color: #166534; }
+        .status-cancelled { background: #fee2e2; color: #991b1b; }
+        .order-body { padding: 24px; display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+        .store-avatar { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: #e2e8f0; }
+        .order-details { flex: 1; min-width: 200px; }
+        .store-name { font-size: 18px; font-weight: 700; margin: 0 0 8px 0; }
+        .item-row { display: flex; justify-content: space-between; margin-bottom: 4px; color: #475569; font-size: 15px; }
+        .order-footer { padding: 20px 24px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+        .order-total-price { font-size: 20px; font-weight: 700; }
+        .order-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; border: 1px solid transparent; text-decoration: none; display: inline-flex; align-items: center; }
+        .btn-primary { background: #f97316; color: #fff; }
+        .btn-outline { background: #fff; color: #0f172a; border-color: #e2e8f0; }
+        .progress-container { margin-top: 20px; }
+        .progress-bar { height: 6px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+        .progress-fill { background: #f97316; height: 100%; }
+        .progress-steps { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: #94a3b8; gap: 8px; }
+        .step.active { color: #f97316; font-weight: 700; }
+        .step.completed { color: #0f172a; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div id="customer-nav-root"></div>
+    <div class="page-container">
+        <div class="orders-header">
+            <div id="cancel-banner" style="display:none;background:#fee2e2;color:#991b1b;padding:16px;border-radius:12px;margin-bottom:24px;border:1px solid #fecaca;font-weight:600;">Order successfully cancelled.</div>
+            <h1>My Orders</h1>
+            <p style="color:#64748b;">Track your ongoing orders and view your order history.</p>
+        </div>
+        <div class="tabs">
+            <a href="#" class="tab active" data-tab="active-orders">Active Orders (<span id="active-count">0</span>)</a>
+            <a href="#" class="tab" data-tab="order-history">Order History (<span id="history-count">0</span>)</a>
+        </div>
+        <div id="active-orders" class="orders-section active"></div>
+        <div id="order-history" class="orders-section"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { requireCustomer } from '../js/guard.js';
+        import { renderCustomerNav } from '../js/nav-customer.js';
+        import { queryWhere, getById, updateRecord } from '../js/db.js';
+        import { escapeHtml, formatMoney, imgUrl, formatDate, getQueryParam } from '../js/utils.js';
+
+        const ctx = await requireCustomer();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderCustomerNav();
+        const { user } = ctx;
+
+        if (getQueryParam('msg') === 'cancelled') document.getElementById('cancel-banner').style.display = 'block';
+
+        const ACTIVE = ['pending', 'preparing', 'ready_for_pickup', 'on_the_way'];
+        const HISTORY = ['delivered', 'cancelled'];
+        const DEFAULT_LOGO = 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&q=80&w=200&h=200';
+
+        async function enrichOrder(order) {
+            const orderId = order.Order_Id || order._id;
+            let merchName = 'Unknown Store';
+            let merchId = '';
+            let merchLogo = '';
+            const seller = await getById('sellers', String(order.Seller_Id));
+            if (seller) {
+                const merch = await getById('merchants', String(seller.Merch_Id));
+                if (merch) {
+                    merchName = merch.Merch_Name || merchName;
+                    merchId = merch._id || merch.Merch_Id;
+                    merchLogo = merch.Merch_Logo;
+                }
+            }
+            const items = await queryWhere('order_items', 'Order_Id', '==', orderId);
+            return { ...order, Order_Id: orderId, Merch_Name: merchName, Merch_Id: merchId, Merch_Logo: merchLogo, items };
+        }
+
+        const orders = await queryWhere('orders', 'Customer_Id', '==', user._id);
+        const enriched = await Promise.all(orders.map(enrichOrder));
+        enriched.sort((a, b) => new Date(b.Order_Date || 0) - new Date(a.Order_Date || 0));
+
+        const activeOrders = enriched.filter((o) => ACTIVE.includes(o.Order_Status));
+        const historyOrders = enriched.filter((o) => HISTORY.includes(o.Order_Status));
+        document.getElementById('active-count').textContent = activeOrders.length;
+        document.getElementById('history-count').textContent = historyOrders.length;
+
+        function statusMeta(status) {
+            if (status === 'on_the_way') return { cls: 'status-delivery', progress: '75%' };
+            if (status === 'ready_for_pickup') return { cls: 'status-ready', progress: '50%' };
+            return { cls: 'status-preparing', progress: '25%' };
+        }
+
+        function renderOrderCard(order, isActive) {
+            const statusLabel = (order.Order_Status || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+            const meta = isActive ? statusMeta(order.Order_Status) : {
+                cls: order.Order_Status === 'delivered' ? 'status-completed' : 'status-cancelled',
+            };
+            const itemsHtml = order.items.map((item) => `
+                <div class="item-row">
+                    <span><strong>${item.Quantity}x</strong> ${escapeHtml(item.Food_Name)}</span>
+                    <span>${formatMoney(item.Price * item.Quantity)}</span>
+                </div>`).join('');
+
+            const progress = isActive ? `
+                <div class="progress-container">
+                    <div class="progress-bar"><div class="progress-fill" style="width:${meta.progress};"></div></div>
+                    <div class="progress-steps">
+                        <span class="step completed">Confirmed</span>
+                        <span class="step ${order.Order_Status === 'preparing' ? 'active' : 'completed'}">Preparing</span>
+                        <span class="step ${order.Order_Status === 'ready_for_pickup' ? 'active' : (['on_the_way','delivered'].includes(order.Order_Status) ? 'completed' : '')}">Ready</span>
+                        <span class="step ${order.Order_Status === 'on_the_way' ? 'active' : ''}">On the way</span>
+                    </div>
+                </div>` : '';
+
+            const actions = isActive ? `
+                ${['preparing','ready_for_pickup','on_the_way'].includes(order.Order_Status) ? `<a href="track_order.html?id=${encodeURIComponent(order.Order_Id)}" class="btn btn-outline">Track Status</a>` : ''}
+                ${['pending','preparing'].includes(order.Order_Status) ? `<button type="button" class="btn btn-outline cancel-btn" data-id="${escapeHtml(order.Order_Id)}" style="border-color:#fca5a5;color:#ef4444;">Cancel Order</button>` : ''}
+                <a href="view_store.html?id=${encodeURIComponent(order.Merch_Id)}" class="btn btn-primary">Store Details</a>` :
+                `${order.Order_Status === 'delivered' ? `<a href="review_order.html?id=${encodeURIComponent(order.Order_Id)}" class="btn btn-outline">Write a Review</a>` : ''}
+                <a href="view_store.html?id=${encodeURIComponent(order.Merch_Id)}" class="btn btn-primary">${order.Order_Status === 'delivered' ? 'Reorder' : 'View Store'}</a>`;
+
+            return `
+            <div class="order-card">
+                <div class="order-header">
+                    <div>
+                        <div style="font-weight:700;">Order #${escapeHtml(order.Order_Id)}</div>
+                        <div style="color:#64748b;font-size:14px;margin-top:4px;">${formatDate(order.Order_Date)}</div>
+                    </div>
+                    <div class="order-status-badge ${meta.cls}">${escapeHtml(statusLabel)}</div>
+                </div>
+                <div class="order-body">
+                    <img src="${imgUrl(order.Merch_Logo, DEFAULT_LOGO)}" alt="" class="store-avatar">
+                    <div class="order-details">
+                        <h3 class="store-name">${escapeHtml(order.Merch_Name)}</h3>
+                        ${itemsHtml}
+                        ${progress}
+                    </div>
+                </div>
+                <div class="order-footer">
+                    <div><span style="font-size:13px;color:#64748b;">Total Amount</span><div class="order-total-price">${formatMoney(order.Order_Total)}</div></div>
+                    <div class="order-actions">${actions}</div>
+                </div>
+            </div>`;
+        }
+
+        function renderList(list, elId, isActive) {
+            const el = document.getElementById(elId);
+            if (!list.length) {
+                el.innerHTML = `<div class="order-card" style="padding:40px 20px;text-align:center;color:#64748b;">
+                    <p>${isActive ? 'You have no active orders right now.' : 'You have no completed or cancelled orders.'}</p>
+                    ${isActive ? '<a href="browse_items.html" class="btn btn-primary" style="margin-top:16px;">Explore Foods</a>' : ''}
+                </div>`;
+                return;
+            }
+            el.innerHTML = list.map((o) => renderOrderCard(o, isActive)).join('');
+            el.querySelectorAll('.cancel-btn').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Are you sure you want to cancel this order?')) return;
+                    await updateRecord('orders', btn.dataset.id, { Order_Status: 'cancelled' });
+                    location.href = 'my_orders.html?msg=cancelled';
+                });
+            });
+        }
+
+        renderList(activeOrders, 'active-orders', true);
+        renderList(historyOrders, 'order-history', false);
+
+        document.querySelectorAll('.tab').forEach((tab) => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('.orders-section').forEach((s) => s.classList.remove('active'));
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

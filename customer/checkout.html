@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        .page-container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .checkout-header { margin-top: 40px; margin-bottom: 30px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .checkout-header h1 { font-size: 32px; font-weight: 700; color: #0f172a; margin: 0; }
+        .back-link { display: inline-flex; align-items: center; gap: 6px; color: #64748b; text-decoration: none; font-weight: 600; }
+        .checkout-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 32px; }
+        .checkout-section { background: #fff; padding: 32px; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px; }
+        .section-title { font-size: 20px; font-weight: 700; margin: 0 0 24px 0; }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px; }
+        .form-input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid #e2e8f0; font-size: 15px; font-family: 'Inter', sans-serif; box-sizing: border-box; background: #f8fafc; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .map-container { width: 100%; height: 200px; background: #e2e8f0; border-radius: 12px; margin-bottom: 20px; position: relative; overflow: hidden; border: 1px solid #cbd5e1; }
+        .map-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; }
+        .pick-map-btn { padding: 10px 20px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .payment-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+        .payment-option { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; }
+        .payment-option.active { border-color: #f97316; background: #fff7ed; }
+        .summary-card { background: #fff; padding: 32px; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); position: sticky; top: 20px; }
+        .preview-item { display: flex; justify-content: space-between; font-size: 15px; color: #475569; margin-bottom: 12px; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 16px; color: #64748b; }
+        .summary-row.discount { color: #10b981; }
+        .summary-divider { height: 1px; background: #e2e8f0; margin: 20px 0; }
+        .summary-total-price { font-size: 28px; font-weight: 800; color: #f97316; }
+        .confirm-btn { width: 100%; padding: 16px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-size: 18px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .address-option { padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; }
+        .address-option.active { border-color: #f97316; background: #fff7ed; }
+        .map-modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .map-modal { background: #fff; width: 100%; max-width: 700px; border-radius: 24px; overflow: hidden; }
+        .map-modal-header { padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+        .map-modal-body { padding: 24px; }
+        .quick-pins { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .quick-pin-chip { padding: 8px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .quick-pin-chip.active { background: #fff7ed; color: #ea580c; border-color: #f97316; }
+        @media (max-width: 900px) { .checkout-layout { grid-template-columns: 1fr; } .form-row { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div id="customer-nav-root"></div>
+    <div class="page-container">
+        <div class="checkout-header">
+            <a href="cart.html" class="back-link">← Back to Cart</a>
+            <h1>Checkout</h1>
+        </div>
+        <form id="checkout-form">
+            <div class="checkout-layout">
+                <div>
+                    <div class="checkout-section">
+                        <h2 class="section-title">Delivery Address</h2>
+                        <div class="map-container">
+                            <div class="map-overlay">
+                                <button type="button" class="pick-map-btn" id="pick-map-btn">Select Location on Map</button>
+                            </div>
+                        </div>
+                        <div id="saved-addresses" class="form-group"></div>
+                        <div class="form-group">
+                            <label class="form-label">Full Address</label>
+                            <input type="text" name="full_address" id="fullAddress" class="form-input" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Floor / Unit / Room (Optional)</label>
+                                <input type="text" name="unit" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Contact Number</label>
+                                <input type="tel" name="phone" id="phone" class="form-input" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="checkout-section">
+                        <h2 class="section-title">Payment Method</h2>
+                        <input type="hidden" name="payment_method" id="paymentMethod" value="COD">
+                        <div class="payment-methods">
+                            <div class="payment-option active" data-method="COD">Cash on Delivery</div>
+                            <div class="payment-option" data-method="Card">Credit/Debit Card</div>
+                            <div class="payment-option" data-method="GCash">GCash / E-Wallet</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="order-summary"></div>
+            </div>
+        </form>
+    </div>
+    <div id="mapModal" class="map-modal-backdrop">
+        <div class="map-modal">
+            <div class="map-modal-header">
+                <h3>Select Delivery Location</h3>
+                <button type="button" id="close-map-modal" style="border:none;background:#f1f5f9;width:36px;height:36px;border-radius:50%;cursor:pointer;">×</button>
+            </div>
+            <div class="map-modal-body">
+                <div class="quick-pins" id="quick-pins"></div>
+                <div id="modalLeafletMap" style="width:100%;height:320px;border-radius:16px;border:1px solid #cbd5e1;margin-bottom:16px;"></div>
+                <input type="text" id="modalMapInput" class="form-input" placeholder="Address details">
+            </div>
+            <div style="padding:20px 24px;background:#f8fafc;display:flex;justify-content:flex-end;gap:12px;">
+                <button type="button" id="cancel-map" class="pick-map-btn">Cancel</button>
+                <button type="button" id="confirm-map" class="confirm-btn" style="width:auto;padding:12px 28px;">Confirm</button>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { requireCustomer } from '../js/guard.js';
+        import { renderCustomerNav } from '../js/nav-customer.js';
+        import { queryWhere, getSetting, addRecord, updateRecord, getById, resolveSellerDocId } from '../js/db.js';
+        import { getSession, setSession } from '../js/session.js';
+        import { loadCartDetails, calcPromoDiscount, clearCartFirestore } from '../js/cart.js';
+        import { escapeHtml, formatMoney, nowIso } from '../js/utils.js';
+
+        const ctx = await requireCustomer();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderCustomerNav();
+        const { user } = ctx;
+
+        const cartItems = await loadCartDetails();
+        if (!cartItems.length) { location.href = 'cart.html'; throw new Error('empty cart'); }
+
+        const deliveryFee = Number(await getSetting('delivery_fee', '49')) || 49;
+        const session = getSession();
+        const applied = session?.applied_promo || null;
+        let subtotal = 0;
+        let itemCount = 0;
+        cartItems.forEach((i) => { subtotal += i.Item_Price * i.quantity; itemCount += i.quantity; });
+        const discount = calcPromoDiscount(subtotal, applied);
+        const total = Math.max(0, subtotal + deliveryFee - discount);
+
+        document.getElementById('phone').value = user.phone_number || '';
+        document.getElementById('order-summary').innerHTML = `
+            <div class="summary-card">
+                <h2>Your Order</h2>
+                ${cartItems.map((i) => `<div class="preview-item"><span>${i.quantity}x ${escapeHtml(i.Item_Name)}</span><span>${formatMoney(i.line_total || i.Item_Price * i.quantity)}</span></div>`).join('')}
+                <div class="summary-divider"></div>
+                <div class="summary-row"><span>Subtotal (${itemCount} items)</span><span>${formatMoney(subtotal)}</span></div>
+                <div class="summary-row"><span>Delivery Fee</span><span>${formatMoney(deliveryFee)}</span></div>
+                ${discount > 0 ? `<div class="summary-row discount"><span>Discount (${escapeHtml(applied.code)})</span><span>-${formatMoney(discount)}</span></div>` : ''}
+                <div class="summary-divider"></div>
+                <div class="summary-row" style="align-items:center;"><span style="font-size:18px;font-weight:600;">Total</span><span class="summary-total-price">${formatMoney(total)}</span></div>
+                <button type="submit" form="checkout-form" class="confirm-btn">Confirm Order</button>
+            </div>`;
+
+        const addresses = await queryWhere('addresses', 'user_id', '==', user._id);
+        addresses.sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
+        const addrEl = document.getElementById('saved-addresses');
+        if (addresses.length) {
+            addrEl.innerHTML = `<label class="form-label">Saved Addresses</label>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;">
+                ${addresses.map((a, i) => {
+                    const full = `${a.address_line_1}, ${a.city}`;
+                    return `<div class="address-option ${i === 0 ? 'active' : ''}" data-address="${escapeHtml(full)}">
+                        <strong>${escapeHtml(a.label)}</strong><br><span style="font-size:13px;color:#64748b;">${escapeHtml(full)}</span>
+                    </div>`;
+                }).join('')}</div>`;
+            document.getElementById('fullAddress').value = `${addresses[0].address_line_1}, ${addresses[0].city}`;
+            addrEl.querySelectorAll('.address-option').forEach((el) => {
+                el.addEventListener('click', () => {
+                    addrEl.querySelectorAll('.address-option').forEach((x) => x.classList.remove('active'));
+                    el.classList.add('active');
+                    document.getElementById('fullAddress').value = el.dataset.address;
+                });
+            });
+        }
+
+        document.querySelectorAll('.payment-option').forEach((el) => {
+            el.addEventListener('click', () => {
+                document.querySelectorAll('.payment-option').forEach((x) => x.classList.remove('active'));
+                el.classList.add('active');
+                document.getElementById('paymentMethod').value = el.dataset.method;
+            });
+        });
+
+        let leafletMap = null;
+        const quickLocations = {
+            'Cebu IT Park, Lahug, Cebu City': [10.3298, 123.9060],
+            'Ayala Center Cebu, Cebu Business Park, Cebu City': [10.3182, 123.9052],
+            'SM Seaside City Cebu, South Road Properties, Cebu City': [10.2821, 123.8808],
+            'Mactan-Cebu International Airport, Lapu-Lapu City': [10.3255, 123.9792],
+            'Fuente Osmeña Circle, Cebu City': [10.3121, 123.8924],
+        };
+        document.getElementById('quick-pins').innerHTML = Object.keys(quickLocations).map((loc) =>
+            `<button type="button" class="quick-pin-chip" data-loc="${escapeHtml(loc)}">${escapeHtml(loc.split(',')[0])}</button>`
+        ).join('');
+
+        function openMapModal() {
+            document.getElementById('mapModal').style.display = 'flex';
+            if (!leafletMap) {
+                leafletMap = L.map('modalLeafletMap').setView([10.3298, 123.9060], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafletMap);
+                leafletMap.on('moveend', () => {
+                    const c = leafletMap.getCenter();
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${c.lat}&lon=${c.lng}`)
+                        .then((r) => r.json())
+                        .then((d) => { if (d.display_name) document.getElementById('modalMapInput').value = d.display_name; })
+                        .catch(() => {});
+                });
+            } else leafletMap.invalidateSize();
+        }
+        document.getElementById('pick-map-btn').addEventListener('click', openMapModal);
+        document.getElementById('close-map-modal').addEventListener('click', () => { document.getElementById('mapModal').style.display = 'none'; });
+        document.getElementById('cancel-map').addEventListener('click', () => { document.getElementById('mapModal').style.display = 'none'; });
+        document.getElementById('confirm-map').addEventListener('click', () => {
+            const loc = document.getElementById('modalMapInput').value.trim();
+            if (loc) {
+                document.getElementById('fullAddress').value = loc;
+                document.getElementById('mapModal').style.display = 'none';
+            } else alert('Please enter or select a valid location');
+        });
+        document.getElementById('quick-pins').addEventListener('click', (e) => {
+            const chip = e.target.closest('.quick-pin-chip');
+            if (!chip) return;
+            document.querySelectorAll('.quick-pin-chip').forEach((c) => c.classList.remove('active'));
+            chip.classList.add('active');
+            document.getElementById('modalMapInput').value = chip.dataset.loc;
+            if (leafletMap && quickLocations[chip.dataset.loc]) leafletMap.flyTo(quickLocations[chip.dataset.loc], 16);
+        });
+
+        document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const deliveryAddress = `${fd.get('full_address')} ${fd.get('unit') || ''}`.trim();
+            const paymentMethod = fd.get('payment_method') || 'COD';
+
+            const bySeller = {};
+            cartItems.forEach((item) => {
+                const sid = String(item.Seller_Id);
+                if (!bySeller[sid]) bySeller[sid] = [];
+                bySeller[sid].push(item);
+            });
+
+            const sellerIds = Object.keys(bySeller);
+            const batchId = 'BATCH-' + crypto.randomUUID().slice(0, 8).toUpperCase();
+            let feeAllocated = 0;
+            let discountAllocated = 0;
+
+            try {
+                const customerId = user._id || getSession()?.user_id;
+                if (!customerId) throw new Error('Customer session expired. Please log in again.');
+
+                for (let idx = 0; idx < sellerIds.length; idx++) {
+                    const sellerId = await resolveSellerDocId(sellerIds[idx]);
+                    const items = bySeller[sellerIds[idx]];
+                    const sellerSubtotal = items.reduce((s, i) => s + i.Item_Price * i.quantity, 0);
+                    let allocatedFee;
+                    let allocatedDiscount;
+                    if (idx === sellerIds.length - 1) {
+                        allocatedFee = deliveryFee - feeAllocated;
+                        allocatedDiscount = discount - discountAllocated;
+                    } else {
+                        allocatedFee = Math.round((deliveryFee / sellerIds.length) * 100) / 100;
+                        allocatedDiscount = Math.round((discount / sellerIds.length) * 100) / 100;
+                        feeAllocated += allocatedFee;
+                        discountAllocated += allocatedDiscount;
+                    }
+                    const sellerTotal = Math.max(0, sellerSubtotal + allocatedFee - allocatedDiscount);
+                    const orderDocId = await addRecord('orders', {
+                        Customer_Id: customerId,
+                        Seller_Id: sellerId,
+                        Order_Total: sellerTotal,
+                        Order_Status: 'pending',
+                        Delivery_Address: deliveryAddress,
+                        Payment_Method: paymentMethod,
+                        Batch_Id: batchId,
+                        Order_Date: nowIso(),
+                    });
+                    const orderLabel = 'PG-' + orderDocId.slice(-8).toUpperCase();
+                    await updateRecord('orders', orderDocId, { Order_Id: orderLabel });
+                    for (const item of items) {
+                        await addRecord('order_items', {
+                            Order_Id: orderDocId,
+                            Food_Name: item.Item_Name,
+                            Quantity: item.quantity,
+                            Price: item.Item_Price,
+                        });
+                    }
+                }
+
+                if (applied?.id) {
+                    const promo = await getById('promo_codes', applied.id);
+                    if (promo) {
+                        await updateRecord('promo_codes', applied.id, {
+                            Current_Usage: (Number(promo.Current_Usage) || 0) + 1,
+                        });
+                    }
+                    setSession({ applied_promo: null });
+                }
+
+                await clearCartFirestore(user._id);
+                location.href = 'dashboard.html?order_success=1';
+            } catch (err) {
+                alert('Failed to place order: ' + err.message);
+            }
+        });
+    </script>
+</body>
+</html>

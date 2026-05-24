@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reject Order - PickGo</title>
+</head>
+<body>
+    <p>Rejecting order…</p>
+    <script type="module">
+        import { requireRider } from '../js/guard.js';
+        import { addRejectedOrder } from '../js/rider-orders.js';
+        import { getQueryParam } from '../js/utils.js';
+
+        const auth = await requireRider();
+        if (!auth) throw new Error('Unauthorized');
+
+        const id = getQueryParam('id');
+        if (id) addRejectedOrder(id);
+        window.location.href = 'dashboard.html';
+    </script>
+</body>
+</html>

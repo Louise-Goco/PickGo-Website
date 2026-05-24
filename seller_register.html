@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Become a Seller - Pickaroo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="login.css">
+    <style>
+        .login-container.register-seller { max-width: 800px; width: 95%; }
+        .form-section { margin-bottom: 32px; }
+        .form-section h3 { font-size: 18px; font-weight: 600; color: #0f172a; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .input-group.full-width { grid-column: span 2; }
+        .step-indicator { display: flex; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; }
+        .step-dot { flex: 1; min-width: 80px; text-align: center; padding: 10px 8px; border-radius: 10px; background: #f1f5f9; color: #64748b; font-size: 12px; font-weight: 600; }
+        .step-dot.active { background: #fff7ed; color: #f97316; border: 1px solid #fed7aa; }
+        .step-dot.done { background: #f0fdf4; color: #166534; }
+        .step-panel { display: none; }
+        .step-panel.active { display: block; }
+        .step-actions { display: flex; gap: 12px; margin-top: 24px; }
+        .step-actions .submit-btn { flex: 1; }
+        .btn-secondary { padding: 14px 24px; border-radius: 12px; border: 1px solid #e2e8f0; background: #fff; font-weight: 600; cursor: pointer; }
+        .success-message { background: #f0fdf4; color: #166534; padding: 16px; border-radius: 12px; margin-bottom: 24px; border: 1px solid #dcfce7; }
+        @media (max-width: 640px) { .input-grid { grid-template-columns: 1fr; } .input-group.full-width { grid-column: span 1; } }
+    </style>
+</head>
+<body>
+    <div class="background-elements">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2" style="background: #f97316;"></div>
+    </div>
+
+    <div class="login-container register-seller">
+        <div class="glass-panel">
+            <a href="index.html" class="back-home-btn" title="Back to Homepage">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </a>
+            <div class="login-header">
+                <h2>Register Your Store</h2>
+                <p>Fill out the form below to apply as a merchant partner.</p>
+            </div>
+
+            <div id="errorBox" class="error-message" style="display: none;"><span id="errorText"></span></div>
+
+            <div id="pendingView" style="display: none; text-align: center; padding: 40px 0;">
+                <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 12px;">Application Pending</h3>
+                <p style="color: #64748b; margin-bottom: 32px;">We've received your application for <strong id="pendingStoreName">your store</strong>.</p>
+                <a href="customer/dashboard.html" class="submit-btn" style="text-decoration: none; display: inline-flex;">Go to Customer Dashboard</a>
+            </div>
+
+            <div id="successView" style="display: none;">
+                <div class="success-message">Application submitted successfully! Please wait for admin approval.</div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="login.html" class="submit-btn" style="text-decoration: none; display: inline-flex;">Return to Dashboard</a>
+                </div>
+            </div>
+
+            <form id="sellerForm" class="login-form" style="display: none;">
+                <div class="step-indicator">
+                    <div class="step-dot active" data-step="0">1. Owner</div>
+                    <div class="step-dot" data-step="1">2. Store</div>
+                    <div class="step-dot" data-step="2">3. Location</div>
+                    <div class="step-dot" data-step="3">4. Documents</div>
+                </div>
+
+                <div class="step-panel active" data-step="0">
+                    <div class="form-section"><h3>Owner Information</h3>
+                        <div class="input-grid">
+                            <div class="input-group"><label for="fname">First Name</label><div class="input-wrapper"><input type="text" id="fname" required></div></div>
+                            <div class="input-group"><label for="lname">Last Name</label><div class="input-wrapper"><input type="text" id="lname" required></div></div>
+                            <div class="input-group"><label for="email">Email</label><div class="input-wrapper"><input type="email" id="email" required></div></div>
+                            <div class="input-group"><label for="phone">Phone</label><div class="input-wrapper"><input type="tel" id="phone" required></div></div>
+                            <div class="input-group"><label for="password">Password</label><div class="input-wrapper"><input type="password" id="password" required></div></div>
+                            <div class="input-group"><label for="confirm_password">Confirm Password</label><div class="input-wrapper"><input type="password" id="confirm_password" required></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-panel" data-step="1">
+                    <div class="form-section"><h3>Store Information</h3>
+                        <div class="input-grid">
+                            <div class="input-group"><label for="merch_name">Store Name</label><div class="input-wrapper"><input type="text" id="merch_name" required></div></div>
+                            <div class="input-group"><label for="merch_type">Store Type</label><div class="input-wrapper"><select id="merch_type" required><option value="">Select Type</option><option>Restaurant</option><option>Fast Food</option><option>Cafe</option><option>Grocery</option><option>Pharmacy</option></select></div></div>
+                            <div class="input-group"><label for="merch_phone">Store Phone (Optional)</label><div class="input-wrapper"><input type="text" id="merch_phone"></div></div>
+                            <div class="input-group"><label for="merch_email">Store Email (Optional)</label><div class="input-wrapper"><input type="email" id="merch_email"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-panel" data-step="2">
+                    <div class="form-section"><h3 style="justify-content: space-between;"><span>Store Location</span><button type="button" id="clearLocationBtn" style="background:none;border:none;color:#f97316;font-weight:600;cursor:pointer;">Clear</button></h3>
+                        <div class="input-grid">
+                            <div class="input-group"><label for="building">Building / Mall</label><div class="input-wrapper"><select id="building"><option value="">-- Optional --</option><option>SM Seaside City Cebu</option><option>SM City Cebu</option><option>Ayala Center Cebu</option><option>Ayala Malls Central Bloc</option><option>Robinsons Galleria Cebu</option><option>IT Park - The Walk</option><option>J Centre Mall</option><option>Oakridge Business Park</option><option>Gaisano Grand Mall Mactan</option><option>Mactan Marina Mall</option></select></div></div>
+                            <div class="input-group"><label for="unit_floor">Unit / Floor</label><div class="input-wrapper"><select id="unit_floor"><option value="">-- Select --</option><option>Ground Floor</option><option>Upper Ground Floor</option><option>Lower Ground Floor</option><option>Level 1</option><option>Level 2</option><option>Level 3</option></select></div></div>
+                            <div class="input-group"><label for="street_no">Street No.</label><div class="input-wrapper"><select id="street_no"><option value="">-- Select --</option><option>1</option><option>2</option><option>5</option><option>10</option><option>24</option><option>45</option><option>88</option><option>100</option><option>165</option><option>880</option></select></div></div>
+                            <div class="input-group"><label for="street_name">Street Name</label><div class="input-wrapper"><select id="street_name"><option value="">-- Select --</option><option>South Road Properties</option><option>Juan Luna Avenue</option><option>Cardinal Rosales Avenue</option><option>General Maxilom Avenue</option><option>A.S. Fortuna Street</option><option>Basak-Marigondon Road</option><option>M.L. Quezon National Highway</option></select></div></div>
+                            <div class="input-group"><label for="city">City</label><div class="input-wrapper"><select id="city" required><option value="">-- Select --</option><option>Cebu City</option><option>Mandaue City</option><option>Lapu-Lapu City</option><option>Talisay City</option><option>Consolacion</option><option>Liloan</option><option>Cordova</option><option>Minglanilla</option></select></div></div>
+                            <div class="input-group"><label for="barangay">Barangay</label><div class="input-wrapper"><select id="barangay" required><option value="">-- Select --</option></select></div></div>
+                            <div class="input-group"><label for="province">Province</label><div class="input-wrapper"><select id="province" required><option selected>Cebu</option></select></div></div>
+                            <div class="input-group"><label for="zip">ZIP</label><div class="input-wrapper"><select id="zip" required><option value="">-- Select --</option></select></div></div>
+                            <div class="input-group full-width"><label for="landmark">Landmark</label><div class="input-wrapper"><input type="text" id="landmark"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-panel" data-step="3">
+                    <div class="form-section"><h3>Business Documents</h3>
+                        <div class="input-grid">
+                            <div class="input-group full-width"><label for="gov_id">Government ID</label><div class="input-wrapper"><input type="file" id="gov_id" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png" required style="padding:10px;"></div></div>
+                            <div class="input-group full-width"><label for="bir_cert">BIR Certificate</label><div class="input-wrapper"><input type="file" id="bir_cert" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png" required style="padding:10px;"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-actions">
+                    <button type="button" class="btn-secondary" id="prevBtn" style="display:none;">Back</button>
+                    <button type="button" class="submit-btn" id="nextBtn"><span>Next</span></button>
+                    <button type="submit" class="submit-btn" id="submitBtn" style="display:none;"><span>Submit Application</span></button>
+                </div>
+            </form>
+
+            <div class="login-footer"><p>Already have a seller account? <a href="login.html">Sign In</a></p></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module" src="./js/seller-register-page.js"></script>
+</body>
+</html>

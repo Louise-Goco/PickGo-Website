@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Order - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .page-container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        .back-link { display: inline-flex; align-items: center; gap: 8px; color: #64748b; text-decoration: none; font-weight: 600; background: #f1f5f9; padding: 10px 18px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px; }
+        .review-card { background: #fff; border-radius: 24px; padding: 40px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 32px; text-align: center; }
+        .entity-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 16px; border: 2px solid #e2e8f0; }
+        .stars-container { display: flex; gap: 8px; flex-direction: row-reverse; justify-content: center; margin-bottom: 24px; }
+        .star-input { display: none; }
+        .star-label { cursor: pointer; color: #cbd5e1; }
+        .star-input:checked ~ .star-label, .star-label:hover, .star-label:hover ~ .star-label { color: #f97316; }
+        .star-label svg { width: 40px; height: 40px; fill: currentColor; }
+        .form-textarea { width: 100%; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; font-size: 15px; font-family: 'Inter', sans-serif; min-height: 120px; box-sizing: border-box; }
+        .tip-options { display: flex; gap: 12px; margin-bottom: 24px; }
+        .tip-btn { flex: 1; padding: 12px; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; font-weight: 600; cursor: pointer; }
+        .tip-btn.active { border-color: #f97316; background: #fff7ed; color: #ea580c; }
+        .submit-btn { width: 100%; padding: 16px; background: #0f172a; color: #fff; border: none; border-radius: 12px; font-size: 18px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="customer-nav-root"></div>
+    <div class="page-container" id="review-root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { requireCustomer } from '../js/guard.js';
+        import { renderCustomerNav } from '../js/nav-customer.js';
+        import { getById, queryWhere, addRecord, updateRecord, queryOne } from '../js/db.js';
+        import { escapeHtml, imgUrl, getQueryParam } from '../js/utils.js';
+
+        const ctx = await requireCustomer();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderCustomerNav();
+        const { user } = ctx;
+
+        const orderId = getQueryParam('id');
+        if (!orderId) { location.href = 'my_orders.html'; throw new Error('missing id'); }
+
+        let order = await getById('orders', orderId);
+        if (!order) {
+            const rows = await queryWhere('orders', 'Order_Id', '==', orderId);
+            order = rows[0];
+        }
+        if (!order || String(order.Customer_Id) !== String(user._id)) {
+            location.href = 'my_orders.html';
+            throw new Error('not found');
+        }
+
+        const seller = await getById('sellers', String(order.Seller_Id));
+        const merchant = seller ? await getById('merchants', String(seller.Merch_Id)) : null;
+        let rider = null;
+        if (order.Rider_Id) {
+            rider = await getById('riders', String(order.Rider_Id));
+            if (!rider) {
+                const riders = await queryWhere('riders', 'Rider_Id', '==', order.Rider_Id);
+                rider = riders[0];
+            }
+        }
+
+        const sellerId = seller?._id || seller?.Seller_Id || order.Seller_Id;
+        const merchLogo = imgUrl(merchant?.Merch_Logo, 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&q=80&w=150&h=150');
+        const riderPhoto = imgUrl(rider?.Rider_Photo, 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=150&h=150');
+
+        const starSvg = '<svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+        function stars(name) {
+            return [5,4,3,2,1].map((n) => `
+                <input type="radio" name="${name}" id="${name}-star${n}" value="${n}" class="star-input" ${n===5?'checked':''}>
+                <label for="${name}-star${n}" class="star-label">${starSvg}</label>`).join('');
+        }
+
+        document.getElementById('review-root').innerHTML = `
+            <a href="my_orders.html" class="back-link">← Back to Orders</a>
+            <div style="text-align:center;margin-bottom:32px;">
+                <h1 style="margin:0;font-size:32px;">Rate your Experience</h1>
+                <p style="color:#64748b;margin-top:8px;">Your feedback helps us improve!</p>
+            </div>
+            <form id="review-form">
+                <input type="hidden" name="order_id" value="${escapeHtml(order.Order_Id || order._id)}">
+                <input type="hidden" name="tip_amount" id="tipAmount" value="0">
+                <div class="review-card">
+                    <img src="${merchLogo}" class="entity-avatar" alt="">
+                    <div style="font-size:14px;color:#64748b;font-weight:600;text-transform:uppercase;">${escapeHtml(merchant?.Merch_Type || 'Store')}</div>
+                    <h2 style="margin:8px 0 24px;">${escapeHtml(merchant?.Merch_Name || 'Store')}</h2>
+                    <div class="stars-container">${stars('store_rating')}</div>
+                    <label style="display:block;text-align:left;font-weight:600;margin-bottom:8px;">Write a review (Optional)</label>
+                    <textarea name="store_comment" class="form-textarea" placeholder="How was the food?"></textarea>
+                </div>
+                ${rider ? `
+                <div class="review-card">
+                    <img src="${riderPhoto}" class="entity-avatar" alt="">
+                    <div style="font-size:14px;color:#64748b;font-weight:600;text-transform:uppercase;">Delivery Rider</div>
+                    <h2 style="margin:8px 0 24px;">${escapeHtml((rider.Rider_Fname||'')+' '+(rider.Rider_Lname||''))}</h2>
+                    <div class="stars-container">${stars('rider_rating')}</div>
+                    <label style="display:block;font-weight:600;margin-bottom:16px;">Add a tip?</label>
+                    <div class="tip-options">
+                        <button type="button" class="tip-btn active" data-tip="0">No Tip</button>
+                        <button type="button" class="tip-btn" data-tip="20">₱20</button>
+                        <button type="button" class="tip-btn" data-tip="50">₱50</button>
+                        <button type="button" class="tip-btn" data-tip="100">₱100</button>
+                    </div>
+                    <textarea name="rider_comment" class="form-textarea" placeholder="Was the rider fast and polite?"></textarea>
+                </div>` : ''}
+                <button type="submit" class="submit-btn">Submit Feedback</button>
+            </form>`;
+
+        document.querySelectorAll('.tip-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tip-btn').forEach((b) => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('tipAmount').value = btn.dataset.tip;
+            });
+        });
+
+        document.getElementById('review-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const oid = fd.get('order_id');
+            const storeRating = Number(fd.get('store_rating') || 5);
+            const storeComment = (fd.get('store_comment') || '').trim();
+            const riderRating = Number(fd.get('rider_rating') || 5);
+            const riderComment = (fd.get('rider_comment') || '').trim();
+            const tipAmount = Number(fd.get('tip_amount') || 0);
+
+            await addRecord('reviews', {
+                Order_Id: oid,
+                Customer_Id: user._id,
+                Seller_Id: sellerId,
+                Rating: storeRating,
+                Comment: storeComment,
+            });
+
+            const sellerReviews = await queryWhere('reviews', 'Seller_Id', '==', sellerId);
+            const storeAvg = sellerReviews.reduce((s, r) => s + Number(r.Rating), storeRating) / Math.max(1, sellerReviews.length);
+            await updateRecord('sellers', String(sellerId), { Sellr_Rating: storeAvg });
+
+            if (rider) {
+                const riderId = rider._id || rider.Rider_Id;
+                await addRecord('reviews', {
+                    Order_Id: oid,
+                    Customer_Id: user._id,
+                    Rider_Id: riderId,
+                    Rating: riderRating,
+                    Comment: riderComment,
+                });
+                const riderReviews = await queryWhere('reviews', 'Rider_Id', '==', riderId);
+                const riderAvg = riderReviews.reduce((s, r) => s + Number(r.Rating), riderRating) / Math.max(1, riderReviews.length);
+                await updateRecord('riders', String(riderId), { Rider_Rating: riderAvg });
+                if (tipAmount > 0) {
+                    const current = Number(order.Rider_Earnings) || 0;
+                    await updateRecord('orders', oid, { Rider_Earnings: current + tipAmount });
+                }
+            }
+
+            location.href = 'my_orders.html?review=success';
+        });
+    </script>
+</body>
+</html>

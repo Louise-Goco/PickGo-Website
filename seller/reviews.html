@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Reviews - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .stats-banner { background: #fff; padding: 32px; border-radius: 24px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 40px; display: flex; align-items: center; gap: 40px; }
+        .rating-big { font-size: 48px; font-weight: 800; display: flex; align-items: baseline; gap: 8px; }
+        .stars { color: #f97316; font-size: 24px; letter-spacing: 2px; }
+        .reviews-section { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+        .card { background: #fff; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); padding: 32px; }
+        .review-item { padding: 20px 0; border-bottom: 1px solid #f1f5f9; }
+        .review-item:last-child { border-bottom: none; }
+        .product-tag { display: inline-block; padding: 4px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 11px; font-weight: 600; color: #64748b; margin-top: 10px; }
+        @media (max-width: 768px) { .reviews-section { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <div id="seller-nav-root"></div>
+        <main class="main-content">
+            <div style="margin-bottom: 32px;">
+                <h1 style="font-size: 28px; font-weight: 700;">Customer Reviews</h1>
+                <p style="color: #64748b;">Listen to your customers and improve your service.</p>
+            </div>
+            <div class="stats-banner" id="stats-banner"></div>
+            <div class="reviews-section">
+                <div class="card"><h3>Store Experience <span id="store-count" style="font-size:14px;font-weight:500;color:#94a3b8;"></span></h3><div id="store-reviews"></div></div>
+                <div class="card"><h3>Product Feedback <span id="product-count" style="font-size:14px;font-weight:500;color:#94a3b8;"></span></h3><div id="product-reviews"></div></div>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { requireSeller } from '../js/guard.js';
+        import { getSellerByStoreEmail, queryWhere, queryOne, getAll } from '../js/db.js';
+        import { renderSellerNav } from '../js/nav-seller.js';
+        import { escapeHtml } from '../js/utils.js';
+
+        function stars(n) {
+            let s = '';
+            for (let i = 1; i <= 5; i++) s += i <= n ? '★' : '☆';
+            return s;
+        }
+
+        async function customerName(cid) {
+            let u = await queryOne('users', 'id', String(cid));
+            if (!u) u = await queryOne('users', 'email', String(cid));
+            return u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : 'Customer';
+        }
+
+        function renderReviewList(el, reviews, withProduct) {
+            if (!reviews.length) {
+                el.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:40px 0;">No reviews yet.</p>';
+                return;
+            }
+            el.innerHTML = reviews
+                .map((r) => {
+                    const dt = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+                    const tag = withProduct && r.Item_Name ? `<span class="product-tag">${escapeHtml(r.Item_Name)}</span>` : '';
+                    return `<div class="review-item">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                            <div style="font-weight:700;">${escapeHtml(r.customerName)}</div>
+                            <div style="font-size:12px;color:#94a3b8;">${escapeHtml(dt)}</div>
+                        </div>
+                        <div style="color:#f59e0b;margin-bottom:8px;">${stars(Number(r.Rating || 0))}</div>
+                        <p style="font-size:14px;color:#475569;line-height:1.5;">${escapeHtml(r.Comment || '').replace(/\n/g, '<br>')}</p>
+                        ${tag}
+                    </div>`;
+                })
+                .join('');
+        }
+
+        async function init() {
+            const auth = await requireSeller();
+            if (!auth) return;
+            const ctx = await getSellerByStoreEmail(auth.session.user);
+            if (!ctx || ctx.seller.Sellr_Status !== 'active') {
+                window.location.href = '../login.html';
+                return;
+            }
+            renderSellerNav('reviews');
+            const seller_id = auth.session.seller_id || ctx.seller._id;
+
+            const [reviews, items] = await Promise.all([
+                queryWhere('reviews', 'Seller_Id', '==', seller_id),
+                getAll('items'),
+            ]);
+            const itemMap = Object.fromEntries(items.map((i) => [String(i._id), i.Item_Name]));
+
+            const enriched = await Promise.all(
+                reviews.map(async (r) => ({
+                    ...r,
+                    customerName: await customerName(r.Customer_Id),
+                    Item_Name: r.Item_Id ? itemMap[String(r.Item_Id)] : null,
+                }))
+            );
+
+            const avg = reviews.length ? reviews.reduce((s, r) => s + Number(r.Rating || 0), 0) / reviews.length : 0;
+            document.getElementById('stats-banner').innerHTML = `
+                <div class="rating-big">${avg.toFixed(1)}<span style="font-size:18px;color:#94a3b8;font-weight:500;">/ 5.0</span></div>
+                <div><div class="stars">${stars(Math.round(avg))}</div>
+                <p style="color:#64748b;font-size:14px;margin-top:4px;">Based on <strong>${reviews.length}</strong> total reviews</p></div>`;
+
+            const store_reviews = enriched.filter((r) => !r.Item_Id);
+            const product_reviews = enriched.filter((r) => r.Item_Id);
+            document.getElementById('store-count').textContent = `(${store_reviews.length})`;
+            document.getElementById('product-count').textContent = `(${product_reviews.length})`;
+            renderReviewList(document.getElementById('store-reviews'), store_reviews, false);
+            renderReviewList(document.getElementById('product-reviews'), product_reviews, true);
+        }
+        init();
+    </script>
+</body>
+</html>

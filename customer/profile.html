@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .profile-page-header { background: #fff; border-bottom: 1px solid #f1f5f9; padding: 80px 0 40px 0; }
+        .header-content { max-width: 1100px; margin: 0 auto; padding: 0 20px; display: flex; align-items: center; gap: 24px; }
+        .profile-avatar-large { width: 80px; height: 80px; background: #f97316; color: #fff; border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; }
+        .profile-container { max-width: 1100px; margin: 40px auto; display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding: 0 20px; }
+        @media (max-width: 992px) { .profile-container { grid-template-columns: 1fr; } }
+        .card { background: #fff; border: 1px solid rgba(0,0,0,0.05); border-radius: 24px; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .card h3 { margin: 0 0 24px 0; font-size: 18px; font-weight: 700; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #64748b; font-size: 13px; font-weight: 700; text-transform: uppercase; }
+        .form-group input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; font-family: 'Inter', sans-serif; font-size: 14px; box-sizing: border-box; }
+        .form-group input:disabled { background: #f1f5f9; color: #94a3b8; }
+        .btn { background: #f97316; color: white; border: none; padding: 14px 28px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 15px; width: 100%; font-family: 'Inter', sans-serif; }
+        .address-item { background: #fff; padding: 20px; border-radius: 16px; border: 1px solid #f1f5f9; margin-bottom: 12px; }
+        .btn-delete { color: #ef4444; font-size: 12px; font-weight: 700; cursor: pointer; background: #fef2f2; border: none; padding: 6px 12px; border-radius: 8px; }
+        .alert { padding: 16px; border-radius: 12px; margin-bottom: 24px; font-size: 14px; font-weight: 600; }
+        .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        .alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+    </style>
+</head>
+<body>
+    <div id="customer-nav-root"></div>
+    <div class="profile-page-header">
+        <div class="header-content">
+            <div class="profile-avatar-large" id="avatar-letter">?</div>
+            <div>
+                <h1 id="profile-name" style="margin:0;font-size:28px;">Profile</h1>
+                <p id="member-since" style="color:#64748b;margin-top:4px;"></p>
+            </div>
+        </div>
+    </div>
+    <div class="profile-container">
+        <div class="card">
+            <h3>Personal Information</h3>
+            <div id="profile-alert"></div>
+            <form id="profile-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" name="display_name" id="display_name">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="tel" name="phone_number" id="phone_number">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="email" disabled>
+                </div>
+                <button type="submit" class="btn">Save Changes</button>
+            </form>
+        </div>
+        <div class="card">
+            <h3>Saved Addresses</h3>
+            <div id="address-list"></div>
+            <div style="margin-top:32px;padding-top:24px;border-top:1px solid #f1f5f9;">
+                <h4 style="margin-bottom:16px;">Add New Address</h4>
+                <form id="address-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Label</label>
+                            <input type="text" name="label" placeholder="Home, Office" required>
+                        </div>
+                        <div class="form-group">
+                            <label>City</label>
+                            <input type="text" name="city" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Address Line</label>
+                        <input type="text" name="address_line" required>
+                    </div>
+                    <button type="submit" class="btn">Add Address</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { requireCustomer } from '../js/guard.js';
+        import { renderCustomerNav } from '../js/nav-customer.js';
+        import { queryWhere, updateRecord, addRecord, deleteRecord } from '../js/db.js';
+        import { escapeHtml } from '../js/utils.js';
+
+        const ctx = await requireCustomer();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderCustomerNav();
+        let { user } = ctx;
+
+        function showAlert(msg, type = 'success') {
+            const el = document.getElementById('profile-alert');
+            if (!msg) { el.innerHTML = ''; return; }
+            el.innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`;
+        }
+
+        function renderProfile() {
+            document.getElementById('avatar-letter').textContent =
+                (user.first_name || user.email || '?').charAt(0).toUpperCase();
+            document.getElementById('profile-name').textContent =
+                user.display_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
+            const since = user.created_at ? new Date(user.created_at) : new Date();
+            document.getElementById('member-since').textContent =
+                `Member since ${since.toLocaleString('en-PH', { month: 'short', year: 'numeric' })}`;
+            document.getElementById('display_name').value = user.display_name || '';
+            document.getElementById('phone_number').value = user.phone_number || '';
+            document.getElementById('email').value = user.email || '';
+        }
+
+        async function loadAddresses() {
+            const addresses = await queryWhere('addresses', 'user_id', '==', user._id);
+            const el = document.getElementById('address-list');
+            if (!addresses.length) {
+                el.innerHTML = '<p style="color:#64748b;font-size:14px;">No saved addresses yet.</p>';
+                return;
+            }
+            el.innerHTML = addresses.map((a) => `
+                <div class="address-item">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                        <h4 style="margin:0 0 4px;">${escapeHtml(a.label)}</h4>
+                        <button type="button" class="btn-delete" data-id="${escapeHtml(a._id)}">Delete</button>
+                    </div>
+                    <p style="margin:0;color:#64748b;font-size:13px;">${escapeHtml(a.address_line_1)}, ${escapeHtml(a.city)}</p>
+                </div>`).join('');
+            el.querySelectorAll('.btn-delete').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Delete this address?')) return;
+                    await deleteRecord('addresses', btn.dataset.id);
+                    showAlert('Address deleted successfully.');
+                    await loadAddresses();
+                });
+            });
+        }
+
+        renderProfile();
+        await loadAddresses();
+
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            await updateRecord('users', user._id, {
+                display_name: fd.get('display_name'),
+                phone_number: fd.get('phone_number'),
+            });
+            user = { ...user, display_name: fd.get('display_name'), phone_number: fd.get('phone_number') };
+            showAlert('Profile updated successfully.');
+            renderProfile();
+        });
+
+        document.getElementById('address-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            if (!fd.get('label') || !fd.get('address_line') || !fd.get('city')) {
+                showAlert('All address fields are required.', 'error');
+                return;
+            }
+            await addRecord('addresses', {
+                user_id: user._id,
+                label: fd.get('label'),
+                address_line_1: fd.get('address_line'),
+                city: fd.get('city'),
+                is_default: false,
+            });
+            e.target.reset();
+            showAlert('Address added successfully.');
+            await loadAddresses();
+        });
+    </script>
+</body>
+</html>

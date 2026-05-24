@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Details - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        :root { --primary: #10b981; --bg: #f8fafc; }
+        body { background: var(--bg); font-family: 'Inter', sans-serif; }
+        .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+        .card { background: #fff; padding: 32px; border-radius: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px; }
+        .section-title { font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 12px; gap: 16px; }
+        .info-label { color: #64748b; }
+        .info-value { font-weight: 600; text-align: right; }
+        .status-badge { padding: 6px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+        .status-on_the_way { background: #dcfce7; color: #166534; }
+        .status-ready_for_pickup { background: #fef9c3; color: #854d0e; }
+        .btn { width: 100%; padding: 16px; border-radius: 12px; font-weight: 700; border: none; cursor: pointer; font-size: 16px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .item-list { border-top: 1px solid #f1f5f9; margin-top: 16px; padding-top: 16px; }
+        .item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="dashboard.html" style="display: inline-flex; align-items: center; color: #64748b; text-decoration: none; margin-bottom: 24px; font-weight: 500; gap: 8px;">
+            ← Back to Dashboard
+        </a>
+        <div id="order-content"><p style="color:#64748b;">Loading order…</p></div>
+    </div>
+
+    <script type="module">
+        import { requireRider } from '../js/guard.js';
+        import { queryOne } from '../js/db.js';
+        import {
+            getOrderById, getOrderItems, updateOrderStatus,
+            cancelDelivery, markDelivered
+        } from '../js/rider-orders.js';
+        import { escapeHtml, formatMoney, getQueryParam } from '../js/utils.js';
+
+        const orderId = getQueryParam('id');
+        if (!orderId) window.location.href = 'dashboard.html';
+
+        function statusLabel(s) {
+            return (s || '').replace(/_/g, ' ');
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function renderOrder(order, items) {
+            const oid = order.Order_Id || order._id;
+            const status = order.Order_Status;
+            let actions = `<a href="navigate.html?id=${encodeURIComponent(oid)}" class="btn" style="background:#3b82f6;color:white;flex:1;">Navigate</a>`;
+
+            if (status === 'ready_for_pickup') {
+                actions += `<button type="button" id="pickup-btn" class="btn" style="background:#f59e0b;color:white;flex:1;">Confirm Pickup</button>`;
+            } else if (status === 'on_the_way') {
+                actions += `<div style="flex:1;display:flex;flex-direction:column;gap:16px;">
+                    <label style="background:#f8fafc;border:2px dashed #e2e8f0;border-radius:16px;padding:20px;text-align:center;cursor:pointer;">
+                        <input type="file" id="proof-input" accept="image/*" style="display:none;">
+                        <div id="proof-placeholder">
+                            <div style="font-size:32px;margin-bottom:8px;">📸</div>
+                            <p style="font-size:13px;font-weight:600;color:#64748b;margin:0;">Add Photo Proof (Optional)</p>
+                        </div>
+                        <img id="proof-preview" style="display:none;width:100%;max-height:200px;object-fit:contain;border-radius:8px;" alt="">
+                    </label>
+                    <button type="button" id="deliver-btn" class="btn btn-primary">Mark as Delivered</button>
+                </div>`;
+            }
+
+            const cancelBtn = (status === 'ready_for_pickup' || status === 'on_the_way')
+                ? `<button type="button" id="cancel-btn" class="btn" style="background:transparent;color:#ef4444;border:1px solid #ef4444;margin-top:16px;">Cancel Delivery</button>`
+                : '';
+
+            document.getElementById('order-content').innerHTML = `
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+                        <h1 style="font-size:24px;font-weight:800;margin:0;">Order #${escapeHtml(String(oid))}</h1>
+                        <span class="status-badge status-${escapeHtml(status)}">${escapeHtml(statusLabel(status))}</span>
+                    </div>
+                    <div class="section-title">Pickup Details</div>
+                    <div class="info-row"><span class="info-label">Merchant</span><span class="info-value">${escapeHtml(order.Merch_Name || '')}</span></div>
+                    <div class="info-row"><span class="info-label">Address</span><span class="info-value" style="max-width:250px;">${escapeHtml(order.Merch_Address || order.Store_Address || '')}</span></div>
+                    <div class="info-row"><span class="info-label">Contact</span><span class="info-value">${escapeHtml(order.Merch_ContactNumber || '')}</span></div>
+                    <div class="section-title" style="margin-top:32px;">Delivery Details</div>
+                    <div class="info-row"><span class="info-label">Customer</span><span class="info-value">${escapeHtml(`${order.Cust_Fname || ''} ${order.Cust_Lname || ''}`.trim())}</span></div>
+                    <div class="info-row"><span class="info-label">Address</span><span class="info-value" style="max-width:250px;">${escapeHtml(order.Delivery_Address || '')}</span></div>
+                    <div class="info-row"><span class="info-label">Phone</span><span class="info-value">${escapeHtml(order.Cust_Phone || '')}</span></div>
+                    <div class="item-list">
+                        <div class="section-title">Order Items</div>
+                        ${items.map((i) => `<div class="item"><span>${i.Quantity}x ${escapeHtml(i.Food_Name || i.Item_Name || 'Item')}</span><span style="font-weight:600;">${formatMoney(Number(i.Price || 0) * Number(i.Quantity || 1))}</span></div>`).join('')}
+                        <div style="display:flex;justify-content:space-between;margin-top:16px;padding-top:16px;border-top:2px solid #f8fafc;">
+                            <span style="font-weight:700;">Total Payment</span>
+                            <span style="font-weight:800;color:var(--primary);font-size:18px;">${formatMoney(order.Order_Total)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="section-title">Update Progress</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">${actions}</div>
+                    ${cancelBtn}
+                </div>`;
+
+            document.getElementById('pickup-btn')?.addEventListener('click', async () => {
+                await updateOrderStatus(order._id, 'on_the_way');
+                window.location.reload();
+            });
+
+            document.getElementById('proof-input')?.addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const data = await readFileAsDataUrl(file);
+                document.getElementById('proof-placeholder').style.display = 'none';
+                const img = document.getElementById('proof-preview');
+                img.src = data;
+                img.style.display = 'block';
+                img.dataset.proof = data;
+            });
+
+            document.getElementById('deliver-btn')?.addEventListener('click', async () => {
+                const proof = document.getElementById('proof-preview')?.dataset.proof || null;
+                await markDelivered(order._id, riderId, proof);
+                window.location.href = 'dashboard.html';
+            });
+
+            document.getElementById('cancel-btn')?.addEventListener('click', async () => {
+                if (!confirm('Are you sure you want to cancel this delivery? It will be reassigned to another rider.')) return;
+                await cancelDelivery(order._id);
+                window.location.href = 'dashboard.html?msg=cancelled';
+            });
+        }
+
+        let riderId = null;
+
+        async function init() {
+            const auth = await requireRider();
+            if (!auth) return;
+            riderId = auth.session.rider_id;
+            if (!riderId) {
+                const rider = await queryOne('riders', 'Rider_Email', auth.session.user);
+                riderId = rider?._id;
+            }
+            const order = await getOrderById(orderId, riderId);
+            if (!order) {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+            const items = await getOrderItems(order._id);
+            renderOrder(order, items);
+        }
+
+        init();
+    </script>
+</body>
+</html>

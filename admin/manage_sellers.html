@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Sellers - PickGo Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .dashboard-container { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+        .header-section { margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
+        .header-section h1 { font-size: 32px; font-weight: 700; color: #0f172a; margin: 0; }
+        .search-box { position: relative; width: 350px; }
+        .search-box input { width: 100%; padding: 12px 16px 12px 44px; border-radius: 12px; border: 1px solid #e2e8f0; font-size: 14px; outline: none; box-sizing: border-box; }
+        .search-box svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+        .table-container { background: #fff; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); overflow-x: auto; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 900px; }
+        th { background: #f8fafc; padding: 16px 24px; font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; }
+        td { padding: 16px 24px; border-top: 1px solid #f1f5f9; font-size: 14px; color: #334155; }
+        .seller-info { display: flex; align-items: center; gap: 12px; }
+        .seller-avatar { width: 40px; height: 40px; border-radius: 10px; background: #f97316; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 14px; }
+        .merchant-pill { display: inline-block; padding: 4px 12px; background: #f1f5f9; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; }
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .status-badge.active { background: #dcfce7; color: #15803d; }
+        .status-badge.pending { background: #fef9c3; color: #854d0e; }
+        .status-badge.suspended { background: #fee2e2; color: #b91c1c; }
+        .status-badge.rejected { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+        .rating-star { color: #eab308; display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 13px; }
+        .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .btn-action { padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #e2e8f0; background: #fff; }
+        .btn-approve { background: #10b981; color: #fff; border: none; }
+        .btn-edit { color: #0ea5e9; }
+        .btn-delete { color: #ef4444; }
+        .alert { padding: 16px; border-radius: 12px; margin-bottom: 24px; font-size: 14px; font-weight: 500; }
+        .alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+        .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); overflow-y: auto; padding: 40px 0; }
+        .modal-content { background: #fff; margin: 0 auto; padding: 32px; width: 650px; max-width: 95%; border-radius: 20px; position: relative; }
+        .close-modal { position: absolute; right: 24px; top: 24px; cursor: pointer; color: #94a3b8; font-size: 28px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 6px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px; outline: none; box-sizing: border-box; }
+        .btn-submit { width: 100%; padding: 14px; background: #0f172a; color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 10px; }
+        .empty-state { padding: 80px; text-align: center; color: #64748b; }
+    </style>
+</head>
+<body>
+    <div id="admin-nav-root"></div>
+    <div class="dashboard-container">
+        <div class="header-section">
+            <div>
+                <h1>Seller Management</h1>
+                <p style="color: #64748b; margin-top: 4px;">Approve applications and manage merchant partnerships.</p>
+            </div>
+            <form id="search-form" class="search-box">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="search-input" placeholder="Search sellers or stores...">
+            </form>
+        </div>
+
+        <div id="alert-box" style="display:none;"></div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Seller Name</th>
+                        <th>Merchant / Store</th>
+                        <th>Status</th>
+                        <th>Compliance</th>
+                        <th>Documents</th>
+                        <th>Date Joined</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="sellers-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="sellerModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal">&times;</span>
+            <h2 style="font-size:24px;font-weight:700;margin:0 0 24px 0;">Edit Seller Details</h2>
+            <form id="sellerForm">
+                <input type="hidden" id="formSellerId">
+                <input type="hidden" id="formMerchId">
+                <div class="form-row">
+                    <div class="form-group"><label>First Name</label><input type="text" id="fname" required></div>
+                    <div class="form-group"><label>Last Name</label><input type="text" id="lname" required></div>
+                </div>
+                <div class="form-group"><label>Email Address</label><input type="email" id="email" required></div>
+                <div class="form-group"><label>Phone Number</label><input type="text" id="phone" required></div>
+                <hr style="border:0;border-top:1px solid #f1f5f9;margin:24px 0;">
+                <h3 style="font-size:16px;margin-bottom:16px;">Store Information</h3>
+                <div class="form-group"><label>Store Name</label><input type="text" id="merch_name" required></div>
+                <div class="form-group">
+                    <label>Store Type</label>
+                    <select id="merch_type">
+                        <option value="Restaurant">Restaurant</option>
+                        <option value="Fast Food">Fast Food</option>
+                        <option value="Cafe">Cafe</option>
+                        <option value="Grocery">Grocery</option>
+                        <option value="Pharmacy">Pharmacy</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { requireAdmin } from '../js/guard.js';
+        import { renderAdminNav } from '../js/nav-admin.js';
+        import { getAll, updateRecord, deleteRecord } from '../js/db.js';
+        import { escapeHtml, showAlert, formatDate, docViewButton, initDocViewer } from '../js/utils.js';
+
+        const ctx = await requireAdmin();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderAdminNav();
+        initDocViewer();
+
+        const modal = document.getElementById('sellerModal');
+        let rows = [];
+
+        async function loadSellers() {
+            const [sellers, merchants] = await Promise.all([getAll('sellers'), getAll('merchants')]);
+            const merchMap = {};
+            merchants.forEach((m) => {
+                merchMap[m._id] = m;
+                if (m.Merch_Id != null) merchMap[String(m.Merch_Id)] = m;
+            });
+            rows = sellers.map((s) => ({ ...s, ...merchMap[s.Merch_Id] || merchMap[String(s.Merch_Id)], Merch_Id: s.Merch_Id, Seller_Id: s._id }));
+            rows.sort((a, b) => new Date(b.Sellr_DateCreated || 0) - new Date(a.Sellr_DateCreated || 0));
+            renderTable(rows);
+        }
+
+        function filterRows(list, q) {
+            if (!q) return list;
+            const s = q.toLowerCase();
+            return list.filter((r) =>
+                (r.Sellr_Fname || '').toLowerCase().includes(s) ||
+                (r.Sellr_Lname || '').toLowerCase().includes(s) ||
+                (r.Sellr_Email || '').toLowerCase().includes(s) ||
+                (r.Merch_Name || '').toLowerCase().includes(s)
+            );
+        }
+
+        function renderTable(list) {
+            const tbody = document.getElementById('sellers-tbody');
+            if (!list.length) {
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>No seller applications found.</p></div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.map((seller) => {
+                const initials = ((seller.Sellr_Fname || '')[0] || '') + ((seller.Sellr_Lname || '')[0] || '');
+                const st = seller.Sellr_Status || 'pending';
+                const sid = seller.Seller_Id || seller._id;
+                const mid = seller.Merch_Id || '';
+                let docs = '';
+                if (seller.Merch_GovID) docs += docViewButton(seller.Merch_GovID, 'Gov ID') + '<br>';
+                if (seller.Merch_BIRCert) docs += docViewButton(seller.Merch_BIRCert, 'BIR Cert');
+                if (!docs) docs = '<span style="color:#94a3b8;font-size:12px;font-style:italic;">None</span>';
+
+                let actions = `<button type="button" class="btn-action btn-edit" data-edit="${escapeHtml(sid)}">Edit</button>`;
+                if (st === 'pending') {
+                    actions += `<button type="button" class="btn-action btn-approve" data-action="approve" data-sid="${escapeHtml(sid)}" data-mid="${escapeHtml(mid)}">Approve</button>`;
+                    actions += `<button type="button" class="btn-action btn-delete" data-action="reject" data-sid="${escapeHtml(sid)}" data-mid="${escapeHtml(mid)}">Reject</button>`;
+                } else if (st === 'active') {
+                    actions += `<button type="button" class="btn-action" data-action="suspend" data-sid="${escapeHtml(sid)}" data-mid="${escapeHtml(mid)}">Suspend</button>`;
+                } else if (st !== 'pending') {
+                    actions += `<button type="button" class="btn-action" data-action="approve" data-sid="${escapeHtml(sid)}" data-mid="${escapeHtml(mid)}">Activate</button>`;
+                }
+                actions += `<button type="button" class="btn-action btn-delete" data-action="delete" data-sid="${escapeHtml(sid)}" data-mid="${escapeHtml(mid)}">Delete</button>`;
+
+                return `<tr>
+                    <td><div class="seller-info"><div class="seller-avatar">${escapeHtml(initials.toUpperCase())}</div>
+                        <div><h4 style="margin:0;font-size:14px;">${escapeHtml((seller.Sellr_Fname||'')+' '+(seller.Sellr_Lname||''))}</h4>
+                        <p style="margin:0;font-size:13px;color:#64748b;">${escapeHtml(seller.Sellr_Email||'')}</p></div></div></td>
+                    <td>${seller.Merch_Name ? `<div style="font-weight:600;">${escapeHtml(seller.Merch_Name)}</div><span class="merchant-pill">${escapeHtml(seller.Merch_Type||'')}</span>` : '<span style="color:#94a3b8;font-style:italic;">No Store Linked</span>'}</td>
+                    <td><span class="status-badge ${escapeHtml(st)}">${escapeHtml(st)}</span></td>
+                    <td><div class="rating-star">★ ${Number(seller.Sellr_Rating||0).toFixed(1)}</div></td>
+                    <td>${docs}</td>
+                    <td>${escapeHtml(formatDate(seller.Sellr_DateCreated, { hour: undefined, minute: undefined }))}</td>
+                    <td><div class="actions">${actions}</div></td>
+                </tr>`;
+            }).join('');
+
+            tbody.querySelectorAll('[data-edit]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const s = rows.find((r) => (r.Seller_Id || r._id) === btn.dataset.edit);
+                    if (!s) return;
+                    document.getElementById('formSellerId').value = s.Seller_Id || s._id;
+                    document.getElementById('formMerchId').value = s.Merch_Id || '';
+                    document.getElementById('fname').value = s.Sellr_Fname || '';
+                    document.getElementById('lname').value = s.Sellr_Lname || '';
+                    document.getElementById('email').value = s.Sellr_Email || '';
+                    document.getElementById('phone').value = s.Sellr_PhoneNumber || '';
+                    document.getElementById('merch_name').value = s.Merch_Name || '';
+                    document.getElementById('merch_type').value = s.Merch_Type || 'Restaurant';
+                    modal.style.display = 'block';
+                });
+            });
+
+            tbody.querySelectorAll('[data-action]').forEach((btn) => {
+                btn.addEventListener('click', () => handleAction(btn.dataset.action, btn.dataset.sid, btn.dataset.mid));
+            });
+        }
+
+        async function handleAction(action, sellerId, merchId) {
+            if (action === 'delete' && !confirm('Are you sure you want to delete this seller and their store?')) return;
+            if (action === 'reject' && !confirm('Reject this application?')) return;
+            try {
+                if (action === 'delete') {
+                    await deleteRecord('sellers', sellerId);
+                    if (merchId) await deleteRecord('merchants', merchId);
+                    showAlert('alert-box', 'Seller deleted successfully!', 'success');
+                } else if (action === 'approve') {
+                    await updateRecord('sellers', sellerId, { Sellr_Status: 'active' });
+                    if (merchId) await updateRecord('merchants', merchId, { Merch_Status: 'active' });
+                    showAlert('alert-box', 'Status updated to active', 'success');
+                } else if (action === 'reject') {
+                    await updateRecord('sellers', sellerId, { Sellr_Status: 'rejected' });
+                    if (merchId) await updateRecord('merchants', merchId, { Merch_Status: 'closed' });
+                    showAlert('alert-box', 'Status updated to rejected', 'success');
+                } else if (action === 'suspend') {
+                    await updateRecord('sellers', sellerId, { Sellr_Status: 'suspended' });
+                    if (merchId) await updateRecord('merchants', merchId, { Merch_Status: 'suspended' });
+                    showAlert('alert-box', 'Status updated to suspended', 'success');
+                }
+                await loadSellers();
+            } catch (e) {
+                showAlert('alert-box', 'Action failed.', 'error');
+            }
+        }
+
+        document.getElementById('sellerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const sellerId = document.getElementById('formSellerId').value;
+            const merchId = document.getElementById('formMerchId').value;
+            try {
+                await updateRecord('sellers', sellerId, {
+                    Sellr_Fname: document.getElementById('fname').value.trim(),
+                    Sellr_Lname: document.getElementById('lname').value.trim(),
+                    Sellr_Email: document.getElementById('email').value.trim(),
+                    Sellr_PhoneNumber: document.getElementById('phone').value.trim(),
+                });
+                if (merchId) {
+                    await updateRecord('merchants', merchId, {
+                        Merch_Name: document.getElementById('merch_name').value.trim(),
+                        Merch_Type: document.getElementById('merch_type').value,
+                    });
+                }
+                showAlert('alert-box', 'Seller details updated successfully!', 'success');
+                modal.style.display = 'none';
+                await loadSellers();
+            } catch (err) {
+                showAlert('alert-box', 'Error updating seller.', 'error');
+            }
+        });
+
+        document.getElementById('close-modal').addEventListener('click', () => { modal.style.display = 'none'; });
+        window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+        document.getElementById('search-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            renderTable(filterRows(rows, document.getElementById('search-input').value.trim()));
+        });
+        document.getElementById('search-input').addEventListener('input', () => {
+            renderTable(filterRows(rows, document.getElementById('search-input').value.trim()));
+        });
+
+        await loadSellers();
+    </script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse Items - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .page-container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .search-section { background: #ffffff; padding: 32px; border-radius: 16px; margin-top: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid rgba(0,0,0,0.05); }
+        .search-header { margin-bottom: 24px; }
+        .search-header h1 { font-size: 28px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0; }
+        .search-header p { color: #64748b; margin: 0; font-size: 16px; }
+        .search-controls { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 16px; align-items: center; }
+        .search-input-group { position: relative; }
+        .search-input { width: 100%; padding: 14px 20px; padding-left: 48px; border-radius: 12px; border: 1px solid #e2e8f0; font-size: 16px; font-family: 'Inter', sans-serif; transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box; }
+        .search-input:focus { outline: none; border-color: #f97316; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1); }
+        .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+        .filter-select { width: 100%; padding: 14px 20px; border-radius: 12px; border: 1px solid #e2e8f0; font-size: 16px; font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; cursor: pointer; box-sizing: border-box; }
+        .filter-select:focus { outline: none; border-color: #f97316; }
+        .search-btn { padding: 14px 32px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .search-btn:hover { background: #ea580c; }
+        .category-chips { display: flex; gap: 12px; margin-top: 32px; overflow-x: auto; padding: 10px 4px 20px 4px; }
+        .chip { padding: 12px 28px; background: #fff; border: 1px solid #e2e8f0; border-radius: 100px; font-size: 14px; font-weight: 600; color: #64748b; white-space: nowrap; text-decoration: none; display: inline-block; }
+        .chip.active { background: #f97316; color: #fff; border-color: #f97316; }
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; margin-top: 40px; }
+        .item-card { background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; }
+        .item-image { width: 100%; height: 200px; object-fit: cover; background: #e2e8f0; }
+        .item-info { padding: 20px; display: flex; flex-direction: column; flex-grow: 1; }
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .item-title { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+        .item-price { font-size: 18px; font-weight: 700; color: #f97316; }
+        .item-seller { margin: 0 0 12px 0; color: #64748b; font-size: 14px; cursor: pointer; }
+        .item-tags { display: flex; gap: 8px; margin-bottom: 20px; }
+        .tag { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: #f1f5f9; color: #475569; font-weight: 500; }
+        .add-to-cart-btn { margin-top: auto; width: 100%; padding: 12px; background: #fff; color: #f97316; border: 1px solid #f97316; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+        .add-to-cart-btn:hover { background: #f97316; color: #fff; }
+        @media (max-width: 900px) { .search-controls { grid-template-columns: 1fr 1fr; } .search-input-group { grid-column: 1 / -1; } .search-btn { grid-column: 1 / -1; } }
+        @media (max-width: 600px) { .search-controls { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div id="customer-nav-root"></div>
+    <div class="page-container">
+        <div class="search-section">
+            <div class="search-header">
+                <h1>Find Your Next Meal</h1>
+                <p>Search by keyword, filter by category or explore different cuisines.</p>
+            </div>
+            <form id="search-form">
+                <div class="search-controls">
+                    <div class="search-input-group">
+                        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" name="q" id="search-q" class="search-input" placeholder="What are you craving?">
+                    </div>
+                    <select name="category" id="search-category" class="filter-select">
+                        <option value="">Any Category</option>
+                    </select>
+                    <select name="cuisine" id="search-cuisine" class="filter-select">
+                        <option value="">Any Cuisine</option>
+                        <option value="filipino">Filipino</option>
+                        <option value="american">American</option>
+                        <option value="italian">Italian</option>
+                        <option value="japanese">Japanese</option>
+                        <option value="chinese">Chinese</option>
+                        <option value="mexican">Mexican</option>
+                    </select>
+                    <button type="submit" class="search-btn">Search</button>
+                </div>
+            </form>
+            <div id="category-chips" class="category-chips"></div>
+        </div>
+        <div id="items-grid" class="items-grid"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { renderCustomerNav } from '../js/nav-customer.js';
+        import { getItemsWithMerchants, getAll } from '../js/db.js';
+        import { addToCart } from '../js/cart.js';
+        import { escapeHtml, formatMoney, imgUrl, shuffle, getQueryParam, promptLoginForCart } from '../js/utils.js';
+        import { getSession } from '../js/session.js';
+
+        await renderCustomerNav();
+
+        const DEFAULT_IMG = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400&h=300';
+        const categories = await getAll('categories');
+        categories.sort((a, b) => (a.Categ_Name || '').localeCompare(b.Categ_Name || ''));
+
+        const catSelect = document.getElementById('search-category');
+        categories.forEach((c) => {
+            const opt = document.createElement('option');
+            opt.value = c.Categ_Name;
+            opt.textContent = c.Categ_Name;
+            catSelect.appendChild(opt);
+        });
+
+        const activeCat = getQueryParam('category') || '';
+        document.getElementById('search-q').value = getQueryParam('q') || '';
+        if (activeCat) catSelect.value = activeCat;
+
+        const chipsEl = document.getElementById('category-chips');
+        chipsEl.innerHTML = `<a href="browse_items.html" class="chip ${!activeCat ? 'active' : ''}">Foods</a>` +
+            categories.map((c) => {
+                const active = activeCat === c.Categ_Name ? 'active' : '';
+                return `<a href="browse_items.html?category=${encodeURIComponent(c.Categ_Name)}" class="chip ${active}">${escapeHtml(c.Categ_Name)}</a>`;
+            }).join('');
+
+        let items = await getItemsWithMerchants({ status: 'available', sellerActive: true, merchActive: true });
+        const catMap = Object.fromEntries(categories.map((c) => [String(c._id || c.Categ_Id), c.Categ_Name]));
+
+        function filterItems() {
+            const q = (document.getElementById('search-q').value || '').toLowerCase();
+            const catName = document.getElementById('search-category').value;
+            const catRow = categories.find((c) => c.Categ_Name === catName);
+            return items.filter((item) => {
+                if (q && !item.Item_Name?.toLowerCase().includes(q) && !item.Item_Description?.toLowerCase().includes(q)) return false;
+                if (catName && catRow && String(item.Item_Category) !== String(catRow._id || catRow.Categ_Id)) return false;
+                return true;
+            });
+        }
+
+        function renderGrid(list) {
+            const grid = document.getElementById('items-grid');
+            const shuffled = shuffle(list);
+            if (!shuffled.length) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:80px;color:#64748b;"><p>No approved products found matching your search.</p></div>';
+                return;
+            }
+            grid.innerHTML = shuffled.map((item) => {
+                const id = item.Item_Id || item._id;
+                const categ = catMap[String(item.Item_Category)] || 'General';
+                return `
+                <div class="item-card">
+                    <img src="${imgUrl(item.Item_Image, DEFAULT_IMG)}" alt="${escapeHtml(item.Item_Name)}" class="item-image">
+                    <div class="item-info">
+                        <div class="item-header">
+                            <h3 class="item-title">${escapeHtml(item.Item_Name)}</h3>
+                            <span class="item-price">${formatMoney(item.Item_Price)}</span>
+                        </div>
+                        <p class="item-seller" onclick="location.href='view_store.html?id=${encodeURIComponent(item.merchant?._id || item.Merch_Id || '')}'">${escapeHtml(item.Merch_Name)}</p>
+                        <div class="item-tags"><span class="tag">${escapeHtml(categ)}</span></div>
+                        <button type="button" class="add-to-cart-btn" data-item-id="${escapeHtml(id)}">Add to Cart</button>
+                    </div>
+                </div>`;
+            }).join('');
+
+            grid.querySelectorAll('.add-to-cart-btn').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (!getSession()?.user_id) {
+                        await promptLoginForCart();
+                        return;
+                    }
+                    await addToCart(btn.dataset.itemId, 1);
+                    await renderCustomerNav();
+                    btn.textContent = 'Added!';
+                    setTimeout(() => { btn.textContent = 'Add to Cart'; }, 1200);
+                });
+            });
+        }
+
+        document.getElementById('search-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const q = document.getElementById('search-q').value;
+            const cat = document.getElementById('search-category').value;
+            const params = new URLSearchParams();
+            if (q) params.set('q', q);
+            if (cat) params.set('category', cat);
+            location.href = 'browse_items.html' + (params.toString() ? '?' + params : '');
+        });
+
+        renderGrid(filterItems());
+    </script>
+</body>
+</html>

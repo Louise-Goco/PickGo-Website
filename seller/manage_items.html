@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Products - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .page-header { margin-bottom: 32px; }
+        .manage-container { display: flex; gap: 32px; align-items: flex-start; }
+        .product-form-card { background: #fff; border-radius: 24px; padding: 32px; border: 1px solid rgba(0,0,0,0.05); width: 400px; position: sticky; top: 40px; flex-shrink: 0; }
+        .form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; }
+        .product-catalog { flex: 1; min-width: 0; }
+        .category-section { margin-bottom: 40px; }
+        .category-title { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 12px; }
+        .category-title::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; }
+        .item-card { background: #fff; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        .item-image { width: 100%; height: 180px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .item-image img { width: 100%; height: 100%; object-fit: cover; }
+        .item-info { padding: 20px; flex: 1; display: flex; flex-direction: column; }
+        .item-status { position: absolute; top: 12px; right: 12px; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+        .status-available { background: #f0fdf4; color: #166534; }
+        .status-pending { background: #fef9c3; color: #854d0e; }
+        .status-out_of_stock { background: #f1f5f9; color: #475569; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 14px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px; box-sizing: border-box; }
+        .btn-add { background: #f97316; color: #fff; border: none; padding: 14px; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; }
+        .btn-outline { background: #fff; color: #64748b; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
+        .action-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+        @media (max-width: 1024px) { .manage-container { flex-direction: column; } .product-form-card { width: 100%; position: static; } }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <div id="seller-nav-root"></div>
+        <main class="main-content">
+            <div class="page-header">
+                <h1 style="font-size: 28px; font-weight: 700;">Manage Products</h1>
+                <p style="color: #64748b;">Add, edit or remove items from your store menu.</p>
+            </div>
+            <div id="alert-box"></div>
+            <div class="manage-container">
+                <div class="product-form-card" id="formContainer">
+                    <div class="form-header">
+                        <h2 id="formTitle" style="margin:0;font-size:20px;">Add New Product</h2>
+                        <button type="button" id="cancelEditBtn" class="btn-outline" style="display:none;">Cancel Edit</button>
+                    </div>
+                    <form id="item-form">
+                        <input type="hidden" id="editItemId">
+                        <input type="hidden" id="existingImage">
+                        <div class="form-group"><label>Product Name</label><input type="text" id="itemName" required></div>
+                        <div class="form-group"><label>Category</label><select id="itemCategory" required><option value="">Select Category</option></select></div>
+                        <div class="form-group"><label>Price (₱)</label><input type="number" id="itemPrice" step="0.01" required></div>
+                        <div class="form-group"><label>Description</label><textarea id="itemDescription" rows="3"></textarea></div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="itemStatus">
+                                <option value="available">Available</option>
+                                <option value="pending">Pending Approval</option>
+                                <option value="out_of_stock">Out of Stock</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Product Image</label><input type="file" id="itemImage" accept="image/*"></div>
+                        <button type="submit" class="btn-add" id="saveBtn">Save Product</button>
+                    </form>
+                </div>
+                <div class="product-catalog" id="catalog"></div>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { requireSeller } from '../js/guard.js';
+        import { getSellerByStoreEmail, queryWhere, getAll, addRecord, updateRecord, deleteRecord } from '../js/db.js';
+        import { renderSellerNav } from '../js/nav-seller.js';
+        import { escapeHtml, formatMoney, showAlert, nowIso } from '../js/utils.js';
+
+        let seller_id = null;
+        let categories = [];
+        const itemsById = new Map();
+
+        function itemId(i) { return i.Item_Id || i._id; }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(r.result);
+                r.onerror = reject;
+                r.readAsDataURL(file);
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('formTitle').textContent = 'Add New Product';
+            document.getElementById('editItemId').value = '';
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemCategory').value = '';
+            document.getElementById('itemPrice').value = '';
+            document.getElementById('itemDescription').value = '';
+            document.getElementById('itemStatus').value = 'available';
+            document.getElementById('existingImage').value = '';
+            document.getElementById('itemImage').value = '';
+            document.getElementById('saveBtn').textContent = 'Save Product';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+        }
+
+        function editProduct(item) {
+            document.getElementById('formTitle').textContent = 'Edit Product';
+            document.getElementById('editItemId').value = itemId(item);
+            document.getElementById('itemName').value = item.Item_Name || '';
+            document.getElementById('itemCategory').value = item.Item_Category || '';
+            document.getElementById('itemPrice').value = item.Item_Price || '';
+            document.getElementById('itemDescription').value = item.Item_Description || '';
+            document.getElementById('itemStatus').value = item.Item_Status || 'available';
+            document.getElementById('existingImage').value = item.Item_Image || '';
+            document.getElementById('saveBtn').textContent = 'Update Product';
+            document.getElementById('cancelEditBtn').style.display = 'inline-flex';
+            const fc = document.getElementById('formContainer');
+            fc.style.outline = '3px solid #f97316';
+            setTimeout(() => { fc.style.outline = 'none'; }, 2000);
+            fc.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function renderCatalog() {
+            const items = await queryWhere('items', 'Seller_Id', '==', seller_id);
+            itemsById.clear();
+            items.forEach((i) => itemsById.set(String(itemId(i)), i));
+            const catMap = Object.fromEntries(categories.map((c) => [String(c.Categ_Id || c._id), c.Categ_Name]));
+            const grouped = {};
+            for (const item of items) {
+                const cat = catMap[String(item.Item_Category)] || 'Uncategorized';
+                (grouped[cat] ||= []).push(item);
+            }
+
+            const catalog = document.getElementById('catalog');
+            if (!items.length) {
+                catalog.innerHTML = '<div style="background:#fff;padding:80px;border-radius:24px;text-align:center;"><h2>No products yet</h2><p style="color:#64748b;">Use the form to add your first product.</p></div>';
+                return;
+            }
+
+            catalog.innerHTML = Object.entries(grouped)
+                .map(([cat, list]) => {
+                    const cards = list
+                        .map((item) => {
+                            const img = item.Item_Image
+                                ? `<img src="${item.Item_Image.startsWith('data:') || item.Item_Image.startsWith('http') ? item.Item_Image : '../' + item.Item_Image}" alt="">`
+                                : '';
+                            const st = item.Item_Status || 'pending';
+                            return `<div class="item-card">
+                                <div class="item-status status-${st}">${escapeHtml(String(st).replace(/_/g, ' '))}</div>
+                                <div class="item-image">${img}</div>
+                                <div class="item-info">
+                                    <div style="font-weight:700;">${escapeHtml(item.Item_Name)}</div>
+                                    <div style="font-weight:800;color:#f97316;">${formatMoney(item.Item_Price)}</div>
+                                    <div style="font-size:13px;color:#64748b;flex:1;">${escapeHtml(item.Item_Description || '')}</div>
+                                    <div style="display:flex;gap:10px;padding-top:16px;border-top:1px solid #f1f5f9;margin-top:auto;">
+                                        <button type="button" class="action-btn" data-edit="${escapeHtml(itemId(item))}">Edit</button>
+                                        <button type="button" class="action-btn" style="color:#ef4444;" data-delete="${escapeHtml(itemId(item))}">Delete</button>
+                                    </div>
+                                </div>
+                            </div>`;
+                        })
+                        .join('');
+                    return `<section class="category-section"><h2 class="category-title">${escapeHtml(cat)} <span style="font-size:14px;font-weight:500;color:#94a3b8;">(${list.length})</span></h2><div class="items-grid">${cards}</div></section>`;
+                })
+                .join('');
+
+            catalog.querySelectorAll('[data-edit]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const item = itemsById.get(btn.dataset.edit);
+                    if (item) editProduct(item);
+                });
+            });
+            catalog.querySelectorAll('[data-delete]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Delete this item?')) return;
+                    await deleteRecord('items', btn.dataset.delete);
+                    showAlert('alert-box', 'Item deleted.', 'success');
+                    await renderCatalog();
+                });
+            });
+        }
+
+        async function init() {
+            const auth = await requireSeller();
+            if (!auth) return;
+            const ctx = await getSellerByStoreEmail(auth.session.user);
+            if (!ctx || ctx.seller.Sellr_Status !== 'active') {
+                window.location.href = '../login.html';
+                return;
+            }
+            renderSellerNav('products');
+            seller_id = auth.session.seller_id || ctx.seller._id;
+            categories = await getAll('categories', 'Categ_Name');
+            const sel = document.getElementById('itemCategory');
+            categories.forEach((c) => {
+                const id = c.Categ_Id || c._id;
+                sel.innerHTML += `<option value="${escapeHtml(id)}">${escapeHtml(c.Categ_Name)}</option>`;
+            });
+
+            document.getElementById('cancelEditBtn').onclick = resetForm;
+            document.getElementById('item-form').onsubmit = async (e) => {
+                e.preventDefault();
+                let image = document.getElementById('existingImage').value;
+                const file = document.getElementById('itemImage').files[0];
+                if (file) image = await readFileAsDataUrl(file);
+                const payload = {
+                    Seller_Id: seller_id,
+                    Item_Name: document.getElementById('itemName').value.trim(),
+                    Item_Description: document.getElementById('itemDescription').value.trim(),
+                    Item_Price: Number(document.getElementById('itemPrice').value),
+                    Item_Category: document.getElementById('itemCategory').value,
+                    Item_Image: image,
+                    Item_Status: document.getElementById('itemStatus').value,
+                };
+                const editId = document.getElementById('editItemId').value;
+                if (editId) {
+                    await updateRecord('items', editId, payload);
+                    showAlert('alert-box', 'Item updated successfully!', 'success');
+                } else {
+                    await addRecord('items', { ...payload, created_at: nowIso() });
+                    showAlert('alert-box', 'Item added successfully!', 'success');
+                }
+                resetForm();
+                await renderCatalog();
+            };
+
+            await renderCatalog();
+        }
+        init();
+    </script>
+</body>
+</html>

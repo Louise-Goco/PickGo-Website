@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Development-friendly rules for static HTML client.
+    // Tighten before production: use Firebase Auth + role-based rules.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

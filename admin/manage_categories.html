@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Category Management - PickGo Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .dashboard-container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        .header-section { margin-top: 40px; margin-bottom: 32px; }
+        .header-section h1 { font-size: 32px; font-weight: 700; color: #0f172a; margin: 0; }
+        .management-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 32px; }
+        .form-card { background: #fff; border-radius: 20px; padding: 32px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); height: fit-content; }
+        .form-card h3 { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 24px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 14px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
+        .form-group input, .form-group textarea { width: 100%; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 15px; outline: none; transition: border-color 0.2s; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        .form-group input:focus, .form-group textarea:focus { border-color: #f97316; }
+        .btn-submit { width: 100%; padding: 14px; background: #0f172a; color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; transition: background 0.2s; }
+        .btn-submit:hover { background: #1e293b; }
+        .btn-cancel { display: block; text-align: center; margin-top: 12px; color: #64748b; text-decoration: none; font-size: 14px; font-weight: 600; }
+        .table-card { background: #fff; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background: #f8fafc; padding: 16px 24px; font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 16px 24px; border-top: 1px solid #f1f5f9; font-size: 14px; color: #334155; vertical-align: top; }
+        .cat-name { font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px; }
+        .cat-desc { font-size: 13px; color: #64748b; line-height: 1.4; }
+        .actions { display: flex; gap: 12px; }
+        .btn-icon { color: #94a3b8; transition: color 0.2s; cursor: pointer; background: none; border: none; padding: 0; }
+        .btn-icon:hover { color: #f97316; }
+        .btn-icon.delete:hover { color: #ef4444; }
+        .alert { padding: 16px; border-radius: 12px; margin-bottom: 24px; font-size: 14px; font-weight: 500; }
+        .alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+        .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        @media (max-width: 850px) { .management-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div id="admin-nav-root"></div>
+    <div class="dashboard-container">
+        <div class="header-section">
+            <h1>Category Management</h1>
+            <p style="color: #64748b; margin-top: 4px;">Organize food and store types across the platform.</p>
+        </div>
+
+        <div id="alert-box" style="display:none;"></div>
+
+        <div class="management-grid">
+            <div class="form-card">
+                <h3 id="form-title">Create New Category</h3>
+                <form id="category-form">
+                    <input type="hidden" id="edit-id" value="">
+                    <div class="form-group">
+                        <label>Category Name</label>
+                        <input type="text" id="cat-name" placeholder="e.g. Italian, Burgers, Vegan" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description (Optional)</label>
+                        <textarea id="cat-desc" rows="4" placeholder="Brief description of this category..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-submit" id="submit-btn">Create Category</button>
+                    <a href="manage_categories.html" class="btn-cancel" id="cancel-edit" style="display:none;">Cancel Editing</a>
+                </form>
+            </div>
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Category Info</th>
+                            <th style="width: 100px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categories-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { requireAdmin } from '../js/guard.js';
+        import { renderAdminNav } from '../js/nav-admin.js';
+        import { getAll, addRecord, updateRecord, deleteRecord } from '../js/db.js';
+        import { escapeHtml, showAlert, getQueryParam } from '../js/utils.js';
+
+        const ctx = await requireAdmin();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderAdminNav();
+
+        const form = document.getElementById('category-form');
+        const editIdEl = document.getElementById('edit-id');
+        const editParam = getQueryParam('edit');
+
+        async function loadCategories() {
+            const categories = await getAll('categories', 'Categ_Name');
+            const tbody = document.getElementById('categories-tbody');
+            if (!categories.length) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:40px;color:#94a3b8;">No categories created yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = categories.map((cat) => {
+                const id = cat._id;
+                return `<tr>
+                    <td>
+                        <span class="cat-name">${escapeHtml(cat.Categ_Name)}</span>
+                        <span class="cat-desc">${escapeHtml(cat.Categ_Description || '')}</span>
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <a href="manage_categories.html?edit=${encodeURIComponent(id)}" class="btn-icon" title="Edit">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </a>
+                            <button type="button" class="btn-icon delete" data-id="${escapeHtml(id)}" title="Delete">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            tbody.querySelectorAll('.btn-icon.delete').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Are you sure you want to delete this category?')) return;
+                    try {
+                        await deleteRecord('categories', btn.dataset.id);
+                        showAlert('alert-box', 'Category deleted successfully!', 'success');
+                        if (editIdEl.value === btn.dataset.id) window.location.href = 'manage_categories.html';
+                        else await loadCategories();
+                    } catch (e) {
+                        showAlert('alert-box', 'Error deleting category. It might be in use.', 'error');
+                    }
+                });
+            });
+        }
+
+        async function loadEditMode() {
+            if (!editParam) return;
+            const cat = await queryOne('categories', '_id', editParam) || (await getAll('categories')).find((c) => c._id === editParam);
+            const row = cat || (await getAll('categories')).find((c) => String(c._id) === editParam);
+            if (!row) return;
+            editIdEl.value = row._id;
+            document.getElementById('cat-name').value = row.Categ_Name || '';
+            document.getElementById('cat-desc').value = row.Categ_Description || '';
+            document.getElementById('form-title').textContent = 'Edit Category';
+            document.getElementById('submit-btn').textContent = 'Update Category';
+            document.getElementById('cancel-edit').style.display = 'block';
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('cat-name').value.trim();
+            const desc = document.getElementById('cat-desc').value.trim();
+            if (!name) {
+                showAlert('alert-box', 'Category name is required.', 'error');
+                return;
+            }
+            try {
+                if (editIdEl.value) {
+                    await updateRecord('categories', editIdEl.value, { Categ_Name: name, Categ_Description: desc });
+                    showAlert('alert-box', 'Category updated successfully!', 'success');
+                    window.location.href = 'manage_categories.html';
+                } else {
+                    const existing = (await getAll('categories')).find((c) => c.Categ_Name?.toLowerCase() === name.toLowerCase());
+                    if (existing) {
+                        showAlert('alert-box', 'Category name already exists.', 'error');
+                        return;
+                    }
+                    await addRecord('categories', { Categ_Name: name, Categ_Description: desc });
+                    showAlert('alert-box', 'Category created successfully!', 'success');
+                    form.reset();
+                    await loadCategories();
+                }
+            } catch (err) {
+                showAlert('alert-box', 'Error saving category.', 'error');
+            }
+        });
+
+        if (editParam) {
+            const all = await getAll('categories');
+            const row = all.find((c) => c._id === editParam);
+            if (row) {
+                editIdEl.value = row._id;
+                document.getElementById('cat-name').value = row.Categ_Name || '';
+                document.getElementById('cat-desc').value = row.Categ_Description || '';
+                document.getElementById('form-title').textContent = 'Edit Category';
+                document.getElementById('submit-btn').textContent = 'Update Category';
+                document.getElementById('cancel-edit').style.display = 'block';
+            }
+        }
+
+        await loadCategories();
+    </script>
+</body>
+</html>

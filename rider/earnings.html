@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Earnings - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #10b981; --bg: #f8fafc; }
+        body { background: var(--bg); font-family: 'Inter', sans-serif; margin: 0; color: #0f172a; }
+        .container { max-width: 800px; }
+        .balance-card { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 40px; border-radius: 32px; box-shadow: 0 20px 25px -5px rgba(16, 185, 129, 0.2); margin-bottom: 32px; }
+        .balance-label { font-size: 14px; opacity: 0.9; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        .balance-value { font-size: 48px; font-weight: 800; margin: 12px 0 24px; }
+        .btn-payout { background: white; color: var(--primary); border: none; padding: 14px 28px; border-radius: 14px; font-weight: 700; cursor: pointer; }
+        .section { margin-bottom: 40px; }
+        .section-title { font-size: 18px; font-weight: 800; margin-bottom: 20px; }
+        .card { background: white; border-radius: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th { text-align: left; padding: 16px 24px; background: #f1f5f9; font-size: 12px; color: #64748b; text-transform: uppercase; }
+        .table td { padding: 16px 24px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .status { padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+        .status-pending { background: #fef9c3; color: #854d0e; }
+        .status-approved, .status-processed { background: #dcfce7; color: #166534; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .bonus-pill { background: #dcfce7; color: #10b981; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+    </style>
+</head>
+<body>
+    <div id="rider-nav-root"></div>
+    <main class="main-content">
+        <div class="container">
+            <h1 style="font-size: 24px; font-weight: 800; margin-bottom: 32px;">Earnings Dashboard</h1>
+            <div id="msg-box" style="display:none;background:#fee2e2;color:#991b1b;padding:16px;border-radius:12px;margin-bottom:24px;border:1px solid #fecaca;font-weight:600;"></div>
+
+            <div class="balance-card">
+                <div class="balance-label">Withdrawable Balance</div>
+                <div class="balance-value" id="balance-value">₱0.00</div>
+                <button type="button" id="payout-btn" class="btn-payout">Withdraw Earnings</button>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Trip History</div>
+                <div class="card">
+                    <table class="table">
+                        <thead>
+                            <tr><th>Trip / Store</th><th>Order Total</th><th>Your Earnings</th><th>Date</th></tr>
+                        </thead>
+                        <tbody id="trips-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Payout Requests</div>
+                <div class="card">
+                    <table class="table">
+                        <thead>
+                            <tr><th>Request Date</th><th>Amount</th><th>Bank Account</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="payouts-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { requireRider } from '../js/guard.js';
+        import { renderRiderNav } from '../js/nav-rider.js';
+        import { queryOne } from '../js/db.js';
+        import { getRiderEarningsData, requestPayout } from '../js/rider-orders.js';
+        import { escapeHtml, formatMoney } from '../js/utils.js';
+
+        function fmtDate(d) {
+            if (!d) return '—';
+            return new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function showMsg(msg) {
+            const el = document.getElementById('msg-box');
+            if (!msg) { el.style.display = 'none'; return; }
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        async function render(riderId, rider) {
+            const { trips, payouts, balance } = await getRiderEarningsData(riderId);
+            document.getElementById('balance-value').textContent = formatMoney(balance);
+
+            const tripsBody = document.getElementById('trips-body');
+            if (!trips.length) {
+                tripsBody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#94a3b8;">No trips completed yet.</td></tr>';
+            } else {
+                tripsBody.innerHTML = trips.map((t) => {
+                    const oid = t.Order_Id || t._id;
+                    const earn = t.Rider_Earnings ?? Number(t.Order_Total || 0) * 0.1;
+                    return `<tr>
+                        <td><div style="font-weight:700;">#${escapeHtml(String(oid))}</div><div style="font-size:12px;color:#64748b;">${escapeHtml(t.Merch_Name || '')}</div></td>
+                        <td>${formatMoney(t.Order_Total)}</td>
+                        <td style="font-weight:700;color:var(--primary);">${formatMoney(earn)}<span class="bonus-pill">+ ₱0.00 Bonus</span></td>
+                        <td style="color:#64748b;">${fmtDate(t.Order_Date)}</td>
+                    </tr>`;
+                }).join('');
+            }
+
+            const payoutsBody = document.getElementById('payouts-body');
+            if (!payouts.length) {
+                payoutsBody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#94a3b8;">No payout requests yet.</td></tr>';
+            } else {
+                payoutsBody.innerHTML = payouts.map((p) => `<tr>
+                    <td>${fmtDate(p.Request_Date)}</td>
+                    <td style="font-weight:700;">${formatMoney(p.Amount)}</td>
+                    <td style="font-size:12px;">${escapeHtml(p.Bank_Name || '')}<br>${escapeHtml(p.Account_Number || '')}</td>
+                    <td><span class="status status-${escapeHtml(p.Payout_Status || 'pending')}">${escapeHtml(p.Payout_Status || 'pending')}</span></td>
+                </tr>`).join('');
+            }
+
+            document.getElementById('payout-btn').onclick = async () => {
+                const result = await requestPayout(riderId, rider, balance);
+                if (result.ok) {
+                    window.location.href = 'earnings.html?success=1';
+                } else {
+                    showMsg(result.error);
+                }
+            };
+        }
+
+        async function init() {
+            const auth = await requireRider();
+            if (!auth) return;
+            renderRiderNav('earnings');
+
+            const rider = await queryOne('riders', 'Rider_Email', auth.session.user);
+            if (!rider) {
+                window.location.href = '../login.html';
+                return;
+            }
+            const riderId = auth.session.rider_id || rider._id;
+            await render(riderId, rider);
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Settings - PickGo Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .dashboard-container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        .header-section { margin-top: 40px; margin-bottom: 32px; }
+        .header-section h1 { font-size: 32px; font-weight: 700; color: #0f172a; margin: 0; }
+        .settings-card { background: #fff; border-radius: 20px; padding: 32px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); margin-bottom: 24px; }
+        .settings-group { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; gap: 16px; }
+        .settings-group:last-child { border-bottom: none; }
+        .settings-info h3 { margin: 0 0 4px 0; font-size: 16px; font-weight: 700; color: #0f172a; }
+        .settings-info p { margin: 0; font-size: 14px; color: #64748b; }
+        .settings-input { width: 150px; position: relative; }
+        .settings-input input { width: 100%; padding: 12px 16px 12px 32px; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 15px; font-weight: 600; color: #0f172a; outline: none; box-sizing: border-box; }
+        .settings-input span.currency { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-weight: 700; color: #94a3b8; font-size: 14px; }
+        .settings-input span.percent { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-weight: 700; color: #94a3b8; font-size: 14px; }
+        .footer-actions { margin-top: 32px; display: flex; justify-content: flex-end; }
+        .btn-save { padding: 14px 40px; background: #0f172a; color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; }
+        .toggle-group { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #f97316; }
+        input:checked + .slider:before { transform: translateX(24px); }
+        .promo-table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+        .promo-table th { text-align: left; padding: 12px; border-bottom: 2px solid #f1f5f9; color: #64748b; font-size: 12px; }
+        .promo-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .promo-badge { padding: 4px 8px; background: #f1f5f9; border-radius: 6px; font-weight: 700; color: #0f172a; font-family: monospace; }
+        .btn-delete { color: #ef4444; background: none; border: none; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .section-title { font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 48px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: #f1f5f9; }
+        .alert { padding: 16px; border-radius: 12px; margin-bottom: 24px; font-size: 14px; font-weight: 500; text-align: center; }
+        .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        .alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+        .promo-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 32px; }
+        .promo-form label { display: block; font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 6px; }
+        .promo-form input, .promo-form select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 14px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <div id="admin-nav-root"></div>
+    <div class="dashboard-container">
+        <div class="header-section">
+            <h1>System Configuration</h1>
+            <p style="color: #64748b; margin-top: 4px;">Adjust platform-wide fees and service parameters.</p>
+        </div>
+
+        <div id="alert-box" style="display:none;"></div>
+
+        <form id="settings-form">
+            <div class="section-title">Fee & Rate Configuration</div>
+            <div class="settings-card">
+                <div class="settings-group">
+                    <div class="settings-info">
+                        <h3>Standard Delivery Fee</h3>
+                        <p>The base cost charged to customers for each delivery.</p>
+                    </div>
+                    <div class="settings-input">
+                        <span class="currency">₱</span>
+                        <input type="number" step="0.01" id="delivery_fee" name="delivery_fee">
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <div class="settings-info">
+                        <h3>Service Charge</h3>
+                        <p>A fixed processing fee applied to every order transaction.</p>
+                    </div>
+                    <div class="settings-input">
+                        <span class="currency">₱</span>
+                        <input type="number" step="0.01" id="service_fee" name="service_fee">
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <div class="settings-info">
+                        <h3>Sales Tax Rate (VAT)</h3>
+                        <p>Percentage of tax applied to the total order value.</p>
+                    </div>
+                    <div class="settings-input">
+                        <input type="number" step="0.01" id="tax_rate" name="tax_rate" style="padding-left:16px;">
+                        <span class="percent">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-title">Payment Methods</div>
+            <div class="settings-card">
+                <div class="toggle-group">
+                    <div class="settings-info">
+                        <h3>Cash on Delivery (COD)</h3>
+                        <p>Allow customers to pay with cash upon delivery.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="payment_cod_enabled">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-group" style="padding-top:16px;border-top:1px solid #f1f5f9;">
+                    <div class="settings-info">
+                        <h3>GCash / E-Wallet</h3>
+                        <p>Enable digital wallet payments via GCash.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="payment_gcash_enabled">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-group" style="padding-top:16px;border-top:1px solid #f1f5f9;">
+                    <div class="settings-info">
+                        <h3>Credit / Debit Card</h3>
+                        <p>Accept payments via Visa, Mastercard, and JCB.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="payment_card_enabled">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="footer-actions">
+                <button type="submit" class="btn-save">Save Configurations</button>
+            </div>
+        </form>
+
+        <div class="section-title">Promo Codes</div>
+        <div class="settings-card">
+            <h3>Add New Promo Code</h3>
+            <form id="promo-form" class="promo-form">
+                <div>
+                    <label>Code</label>
+                    <input type="text" id="promo_code" placeholder="e.g. SUMMER20" required>
+                </div>
+                <div>
+                    <label>Type</label>
+                    <select id="promo_type">
+                        <option value="percentage">Percentage (%)</option>
+                        <option value="fixed">Fixed Amount (₱)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Value</label>
+                    <input type="number" step="0.01" id="promo_value" placeholder="10.00" required>
+                </div>
+                <div>
+                    <label>Expiry Date</label>
+                    <input type="date" id="promo_expiry" required>
+                </div>
+                <div>
+                    <label>Usage Limit</label>
+                    <input type="number" id="promo_limit" value="100" required>
+                </div>
+                <div style="display:flex;align-items:flex-end;">
+                    <button type="submit" class="btn-save" style="width:100%;padding:12px;">Add Promo</button>
+                </div>
+            </form>
+
+            <table class="promo-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Discount</th>
+                        <th>Expiry</th>
+                        <th>Usage</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="promos-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { requireAdmin } from '../js/guard.js';
+        import { renderAdminNav } from '../js/nav-admin.js';
+        import { getSettingsMap, getAll, queryOne, updateRecord, addRecord, deleteRecord } from '../js/db.js';
+        import { escapeHtml, showAlert, formatDate, nowIso } from '../js/utils.js';
+
+        const ctx = await requireAdmin();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderAdminNav();
+
+        async function upsertSetting(key, value) {
+            const row = await queryOne('settings', 'Setting_Key', key);
+            if (row) {
+                await updateRecord('settings', row._id, { Setting_Value: String(value) });
+            } else {
+                await addRecord('settings', { Setting_Key: key, Setting_Value: String(value) });
+            }
+        }
+
+        const settings = await getSettingsMap();
+        document.getElementById('delivery_fee').value = settings.delivery_fee ?? '0';
+        document.getElementById('service_fee').value = settings.service_fee ?? '0';
+        document.getElementById('tax_rate').value = settings.tax_rate ?? '0';
+        document.getElementById('payment_cod_enabled').checked = (settings.payment_cod_enabled ?? '1') === '1';
+        document.getElementById('payment_gcash_enabled').checked = (settings.payment_gcash_enabled ?? '1') === '1';
+        document.getElementById('payment_card_enabled').checked = (settings.payment_card_enabled ?? '1') === '1';
+
+        document.getElementById('settings-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                await upsertSetting('delivery_fee', document.getElementById('delivery_fee').value);
+                await upsertSetting('service_fee', document.getElementById('service_fee').value);
+                await upsertSetting('tax_rate', document.getElementById('tax_rate').value);
+                await upsertSetting('payment_cod_enabled', document.getElementById('payment_cod_enabled').checked ? '1' : '0');
+                await upsertSetting('payment_gcash_enabled', document.getElementById('payment_gcash_enabled').checked ? '1' : '0');
+                await upsertSetting('payment_card_enabled', document.getElementById('payment_card_enabled').checked ? '1' : '0');
+                showAlert('alert-box', 'System configurations updated successfully!', 'success');
+            } catch (err) {
+                showAlert('alert-box', 'Failed to save settings.', 'error');
+            }
+        });
+
+        async function loadPromos() {
+            const promos = await getAll('promo_codes');
+            promos.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+            const tbody = document.getElementById('promos-tbody');
+            if (!promos.length) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">No promo codes active.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = promos.map((p) => {
+                const id = p._id || p.Promo_Id;
+                const disc = p.Discount_Type === 'percentage'
+                    ? `${p.Discount_Value}%`
+                    : `₱${Number(p.Discount_Value).toFixed(2)}`;
+                return `<tr>
+                    <td><span class="promo-badge">${escapeHtml(p.Code)}</span></td>
+                    <td>${escapeHtml(disc)}</td>
+                    <td>${escapeHtml(formatDate(p.Expiry_Date, { hour: undefined, minute: undefined }))}</td>
+                    <td>${Number(p.Current_Usage||0)} / ${Number(p.Usage_Limit||0)}</td>
+                    <td><button type="button" class="btn-delete" data-id="${escapeHtml(id)}">Delete</button></td>
+                </tr>`;
+            }).join('');
+
+            tbody.querySelectorAll('.btn-delete').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Delete this promo code?')) return;
+                    try {
+                        await deleteRecord('promo_codes', btn.dataset.id);
+                        showAlert('alert-box', 'Promo code deleted!', 'success');
+                        await loadPromos();
+                    } catch (e) {
+                        showAlert('alert-box', 'Failed to delete promo.', 'error');
+                    }
+                });
+            });
+        }
+
+        document.getElementById('promo-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const code = document.getElementById('promo_code').value.trim().toUpperCase();
+            try {
+                const existing = await queryOne('promo_codes', 'Code', code);
+                if (existing) {
+                    showAlert('alert-box', 'Promo code already exists.', 'error');
+                    return;
+                }
+                await addRecord('promo_codes', {
+                    Code: code,
+                    Discount_Type: document.getElementById('promo_type').value,
+                    Discount_Value: Number(document.getElementById('promo_value').value),
+                    Expiry_Date: document.getElementById('promo_expiry').value,
+                    Usage_Limit: Number(document.getElementById('promo_limit').value),
+                    Current_Usage: 0,
+                    created_at: nowIso(),
+                });
+                showAlert('alert-box', 'Promo code added successfully!', 'success');
+                e.target.reset();
+                document.getElementById('promo_limit').value = '100';
+                await loadPromos();
+            } catch (err) {
+                showAlert('alert-box', 'Error adding promo code.', 'error');
+            }
+        });
+
+        await loadPromos();
+    </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Requests - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; }
+        .wrap { max-width: 900px; padding: 24px; }
+        h1 { font-size: 22px; margin-bottom: 8px; }
+        p { color: #94a3b8; margin-top: 0; }
+        pre { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; overflow: auto; font-size: 13px; line-height: 1.5; }
+        .actions { margin: 16px 0 24px; display: flex; gap: 12px; flex-wrap: wrap; }
+        button, a.btn { background: #10b981; color: #fff; border: none; padding: 10px 16px; border-radius: 10px; font-weight: 700; cursor: pointer; text-decoration: none; font-size: 14px; }
+        a.btn.secondary { background: #334155; }
+    </style>
+</head>
+<body>
+    <div id="rider-nav-root"></div>
+    <main class="main-content">
+        <div class="wrap">
+            <h1>Delivery Request Debug</h1>
+            <p>Live JSON from <code>fetchNextRequest()</code></p>
+            <div class="actions">
+                <button type="button" id="refresh-btn">Refresh</button>
+                <a href="dashboard.html" class="btn secondary">Dashboard</a>
+            </div>
+            <pre id="json-out">Loading…</pre>
+        </div>
+    </main>
+
+    <script type="module">
+        import { requireRider } from '../js/guard.js';
+        import { renderRiderNav } from '../js/nav-rider.js';
+        import { queryOne } from '../js/db.js';
+        import { fetchNextRequest } from '../js/rider-orders.js';
+
+        let riderId = null;
+        let stationCity = null;
+
+        async function load() {
+            const out = document.getElementById('json-out');
+            try {
+                const data = await fetchNextRequest(riderId, undefined, stationCity);
+                const payload = data
+                    ? { available: true, stationCity, order: data }
+                    : { available: false, stationCity };
+                out.textContent = JSON.stringify(payload, null, 2);
+            } catch (err) {
+                out.textContent = JSON.stringify({ error: String(err.message || err) }, null, 2);
+            }
+        }
+
+        async function init() {
+            const auth = await requireRider();
+            if (!auth) return;
+            renderRiderNav('requests');
+
+            const rider = await queryOne('riders', 'Rider_Email', auth.session.user);
+            riderId = auth.session.rider_id || rider?._id;
+            stationCity = rider?.Rider_StationCity || null;
+            await load();
+            document.getElementById('refresh-btn').addEventListener('click', load);
+            setInterval(load, 2000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

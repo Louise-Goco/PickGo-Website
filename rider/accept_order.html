@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accept Order - PickGo</title>
+</head>
+<body>
+    <p>Accepting order…</p>
+    <script type="module">
+        import { requireRider } from '../js/guard.js';
+        import { queryOne } from '../js/db.js';
+        import { acceptOrder } from '../js/rider-orders.js';
+        import { getQueryParam } from '../js/utils.js';
+
+        const auth = await requireRider();
+        if (!auth) throw new Error('Unauthorized');
+
+        const id = getQueryParam('id');
+        if (id) {
+            let riderId = auth.session.rider_id;
+            if (!riderId) {
+                const rider = await queryOne('riders', 'Rider_Email', auth.session.user);
+                riderId = rider?._id;
+            }
+            await acceptOrder(riderId, id);
+        }
+        window.location.href = 'dashboard.html';
+    </script>
+</body>
+</html>

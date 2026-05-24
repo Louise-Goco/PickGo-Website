@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Cart - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .page-container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .cart-header { margin-top: 40px; margin-bottom: 30px; }
+        .cart-header h1 { font-size: 32px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0; }
+        .cart-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 32px; }
+        .cart-items { display: flex; flex-direction: column; gap: 20px; }
+        .cart-item { display: flex; align-items: center; gap: 20px; background: #fff; padding: 20px; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .item-image { width: 100px; height: 100px; border-radius: 12px; object-fit: cover; background: #e2e8f0; }
+        .item-details { flex: 1; }
+        .item-store { color: #f97316; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+        .item-name { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0; }
+        .quantity-controls { display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 6px; border-radius: 8px; width: fit-content; border: 1px solid #e2e8f0; }
+        .qty-btn { width: 32px; height: 32px; border-radius: 6px; border: none; background: #fff; font-size: 18px; font-weight: 600; cursor: pointer; }
+        .item-total-section { text-align: right; }
+        .item-total { font-size: 20px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0; }
+        .remove-btn { color: #ef4444; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: none; }
+        .summary-card { background: #fff; padding: 32px; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); position: sticky; top: 20px; }
+        .summary-card h2 { font-size: 20px; font-weight: 700; margin: 0 0 24px 0; }
+        .discount-section { display: flex; gap: 12px; margin-bottom: 24px; }
+        .discount-input { flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; font-family: 'Inter', sans-serif; }
+        .apply-btn { padding: 12px 20px; background: #0f172a; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-block; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 16px; color: #64748b; font-size: 15px; }
+        .summary-row.discount { color: #10b981; }
+        .summary-divider { height: 1px; background: #e2e8f0; margin: 20px 0; }
+        .summary-total { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .summary-total-price { font-size: 28px; font-weight: 800; color: #f97316; }
+        .checkout-btn { width: 100%; padding: 16px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-size: 18px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: none; display: block; text-align: center; box-sizing: border-box; }
+        .checkout-btn.disabled { opacity: 0.5; pointer-events: none; }
+        @media (max-width: 900px) { .cart-layout { grid-template-columns: 1fr; } .summary-card { position: static; } }
+    </style>
+</head>
+<body>
+    <div id="customer-nav-root"></div>
+    <div class="page-container">
+        <div class="cart-header">
+            <h1>Your Cart</h1>
+            <p>Review your items before proceeding to checkout.</p>
+        </div>
+        <div class="cart-layout">
+            <div id="cart-items" class="cart-items"></div>
+            <div id="cart-summary"></div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { requireCustomer } from '../js/guard.js';
+        import { renderCustomerNav } from '../js/nav-customer.js';
+        import { getSetting } from '../js/db.js';
+        import { getSession, setSession } from '../js/session.js';
+        import {
+            loadCartDetails,
+            updateCartItem,
+            removeFromCart,
+            applyPromo,
+            removePromo,
+            calcPromoDiscount,
+        } from '../js/cart.js';
+        import { escapeHtml, formatMoney, imgUrl } from '../js/utils.js';
+
+        const ctx = await requireCustomer();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderCustomerNav();
+
+        const DEFAULT_IMG = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=200&h=200';
+        const deliveryBase = Number(await getSetting('delivery_fee', '49')) || 49;
+
+        async function renderCart() {
+            const session = getSession();
+            const items = await loadCartDetails();
+            let subtotal = 0;
+            let itemCount = 0;
+            items.forEach((i) => { subtotal += i.Item_Price * i.quantity; itemCount += i.quantity; });
+
+            const itemsEl = document.getElementById('cart-items');
+            if (!items.length) {
+                itemsEl.innerHTML = `<div style="text-align:center;padding:40px;background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,0.05);">
+                    <p style="color:#64748b;margin-bottom:20px;">Your cart is empty.</p>
+                    <a href="browse_items.html" class="apply-btn">Browse Menu</a></div>`;
+            } else {
+                itemsEl.innerHTML = items.map((item) => {
+                    const line = item.Item_Price * item.quantity;
+                    const id = item.Item_Id || item._id;
+                    return `
+                    <div class="cart-item">
+                        <img src="${imgUrl(item.Item_Image, DEFAULT_IMG)}" alt="${escapeHtml(item.Item_Name)}" class="item-image">
+                        <div class="item-details">
+                            <div class="item-store">${escapeHtml(item.Merch_Name)}</div>
+                            <h3 class="item-name">${escapeHtml(item.Item_Name)}</h3>
+                            <p style="color:#64748b;margin:0 0 12px;">${formatMoney(item.Item_Price)}</p>
+                            <div class="quantity-controls">
+                                <button type="button" class="qty-btn" data-action="dec" data-id="${escapeHtml(id)}">-</button>
+                                <span>${item.quantity}</span>
+                                <button type="button" class="qty-btn" data-action="inc" data-id="${escapeHtml(id)}">+</button>
+                            </div>
+                        </div>
+                        <div class="item-total-section">
+                            <div class="item-total">${formatMoney(line)}</div>
+                            <button type="button" class="remove-btn" data-action="remove" data-id="${escapeHtml(id)}">Remove</button>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                itemsEl.querySelectorAll('[data-action]').forEach((btn) => {
+                    btn.addEventListener('click', async () => {
+                        const id = btn.dataset.id;
+                        if (btn.dataset.action === 'inc') await updateCartItem(id, 1);
+                        else if (btn.dataset.action === 'dec') await updateCartItem(id, -1);
+                        else if (btn.dataset.action === 'remove') await removeFromCart(id);
+                        await renderCustomerNav();
+                        await renderCart();
+                    });
+                });
+            }
+
+            const applied = session?.applied_promo || null;
+            const promoMsg = session?.promo_msg;
+            const promoErr = session?.promo_err;
+            if (promoMsg || promoErr) setSession({ promo_msg: null, promo_err: null });
+
+            const deliveryFee = itemCount > 0 ? deliveryBase : 0;
+            const discount = calcPromoDiscount(subtotal, applied);
+            const total = Math.max(0, subtotal + deliveryFee - discount);
+
+            const summaryEl = document.getElementById('cart-summary');
+            summaryEl.innerHTML = `
+                <div class="summary-card">
+                    <h2>Order Summary</h2>
+                    ${promoMsg ? `<div style="color:#10b981;font-size:13px;font-weight:600;margin-bottom:12px;">${escapeHtml(promoMsg)}</div>` : ''}
+                    ${promoErr ? `<div style="color:#ef4444;font-size:13px;font-weight:600;margin-bottom:12px;">${escapeHtml(promoErr)}</div>` : ''}
+                    ${applied ? `
+                        <div style="display:flex;justify-content:space-between;align-items:center;background:#f0fdf4;border:1px solid #86efac;padding:12px 16px;border-radius:8px;margin-bottom:24px;">
+                            <span style="font-weight:700;color:#166534;font-family:monospace;">${escapeHtml(applied.code)}</span>
+                            <button type="button" id="remove-promo-btn" style="background:none;border:none;color:#ef4444;font-weight:700;cursor:pointer;">Remove</button>
+                        </div>` : `
+                        <form id="promo-form" class="discount-section">
+                            <input type="text" name="promo_code" class="discount-input" placeholder="Promo Code" required>
+                            <button type="submit" class="apply-btn">Apply</button>
+                        </form>`}
+                    <div class="summary-row"><span>Subtotal (${itemCount} items)</span><span>${formatMoney(subtotal)}</span></div>
+                    <div class="summary-row"><span>Delivery Fee</span><span>${formatMoney(deliveryFee)}</span></div>
+                    ${discount > 0 ? `<div class="summary-row discount"><span>Discount (${escapeHtml(applied.code)})</span><span>-${formatMoney(discount)}</span></div>` : ''}
+                    <div class="summary-divider"></div>
+                    <div class="summary-total"><span style="font-size:18px;font-weight:600;">Total</span><span class="summary-total-price">${formatMoney(total)}</span></div>
+                    <a href="checkout.html" class="checkout-btn ${itemCount > 0 ? '' : 'disabled'}">Proceed to Checkout</a>
+                </div>`;
+
+            document.getElementById('promo-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const code = new FormData(e.target).get('promo_code');
+                const result = await applyPromo(code);
+                if (!result.ok) setSession({ promo_err: result.error });
+                await renderCart();
+            });
+            document.getElementById('remove-promo-btn')?.addEventListener('click', async () => {
+                await removePromo();
+                await renderCart();
+            });
+        }
+
+        await renderCart();
+    </script>
+</body>
+</html>

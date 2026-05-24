@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Monitoring - PickGo Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .dashboard-container { max-width: 1440px; margin: 0 auto; padding: 40px 20px; }
+        .header-section { margin-top: 40px; margin-bottom: 32px; }
+        .header-section h1 { font-size: 32px; font-weight: 700; color: #0f172a; margin: 0; }
+        .filters-container { background: #fff; border-radius: 16px; padding: 20px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+        .filter-group { display: flex; flex-direction: column; gap: 6px; }
+        .filter-group label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+        .filter-group input, .filter-group select { padding: 10px 14px; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 14px; outline: none; min-width: 180px; }
+        .btn-filter { padding: 10px 24px; background: #0f172a; color: #fff; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; height: 41px; }
+        .table-container { background: #fff; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); overflow-x: auto; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1000px; }
+        th { background: #f8fafc; padding: 16px 20px; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+        td { padding: 16px 20px; border-top: 1px solid #f1f5f9; font-size: 14px; color: #334155; }
+        .order-id { font-weight: 700; color: #f97316; }
+        .status-pill { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .status-pending { background: #fef9c3; color: #854d0e; }
+        .status-preparing { background: #dbeafe; color: #1e40af; }
+        .status-on_the_way { background: #ffedd5; color: #9a3412; }
+        .status-delivered { background: #dcfce7; color: #15803d; }
+        .status-cancelled { background: #fee2e2; color: #b91c1c; }
+        .price-tag { font-weight: 700; color: #0f172a; }
+        .actions-select { padding: 6px 10px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 12px; outline: none; }
+        .empty-state { padding: 80px; text-align: center; color: #64748b; }
+    </style>
+</head>
+<body>
+    <div id="admin-nav-root"></div>
+    <div class="dashboard-container">
+        <div class="header-section">
+            <h1>Order Monitoring</h1>
+            <p style="color: #64748b; margin-top: 4px;">Monitor all active and past orders across the platform.</p>
+        </div>
+
+        <div id="alert-box" style="display:none;"></div>
+
+        <form id="filters-form" class="filters-container">
+            <div class="filter-group">
+                <label>Search</label>
+                <input type="text" id="filter-search" placeholder="Order ID or Email...">
+            </div>
+            <div class="filter-group">
+                <label>Status</label>
+                <select id="filter-status">
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="preparing">Preparing</option>
+                    <option value="on_the_way">On the Way</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Seller / Store</label>
+                <input type="text" id="filter-seller" placeholder="Merchant name...">
+            </div>
+            <div class="filter-group">
+                <label>Rider</label>
+                <input type="text" id="filter-rider" placeholder="Rider name...">
+            </div>
+            <button type="submit" class="btn-filter">Apply Filters</button>
+            <a href="manage_orders.html" style="font-size: 13px; color: #64748b; text-decoration: none; margin-bottom: 12px;">Reset</a>
+        </form>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Store / Seller</th>
+                        <th>Rider</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="orders-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { requireAdmin } from '../js/guard.js';
+        import { renderAdminNav } from '../js/nav-admin.js';
+        import { getAll, getById, updateRecord } from '../js/db.js';
+        import { escapeHtml, showAlert, formatMoney, formatDate, getQueryParam } from '../js/utils.js';
+
+        const ctx = await requireAdmin();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderAdminNav();
+
+        let enrichedOrders = [];
+
+        async function enrichOrder(order) {
+            const orderId = order.Order_Id || order._id;
+            let cust = { first_name: '', last_name: '', email: '' };
+            let sellr = { Sellr_Fname: '', Sellr_Lname: '' };
+            let merchName = 'No Store';
+            let riderName = null;
+
+            if (order.Customer_Id) {
+                const u = await getById('users', String(order.Customer_Id));
+                if (u) cust = u;
+            }
+            if (order.Seller_Id) {
+                const s = await getById('sellers', String(order.Seller_Id));
+                if (s) {
+                    sellr = s;
+                    if (s.Merch_Id) {
+                        const m = await getById('merchants', String(s.Merch_Id));
+                        if (m) merchName = m.Merch_Name || merchName;
+                    }
+                }
+            }
+            if (order.Rider_Id) {
+                const r = await getById('riders', String(order.Rider_Id));
+                if (r) riderName = `${r.Rider_Fname || ''} ${r.Rider_Lname || ''}`.trim();
+            }
+
+            return {
+                ...order,
+                Order_Id: orderId,
+                cust_fname: cust.first_name,
+                cust_lname: cust.last_name,
+                cust_email: cust.email,
+                Sellr_Fname: sellr.Sellr_Fname,
+                Sellr_Lname: sellr.Sellr_Lname,
+                Merch_Name: merchName,
+                rider_name: riderName,
+            };
+        }
+
+        function applyFilters() {
+            const status = document.getElementById('filter-status').value;
+            const search = document.getElementById('filter-search').value.trim().toLowerCase();
+            const seller = document.getElementById('filter-seller').value.trim().toLowerCase();
+            const rider = document.getElementById('filter-rider').value.trim().toLowerCase();
+
+            return enrichedOrders.filter((o) => {
+                if (status && o.Order_Status !== status) return false;
+                if (seller && !(o.Merch_Name || '').toLowerCase().includes(seller)) return false;
+                if (rider && !(o.rider_name || '').toLowerCase().includes(rider)) return false;
+                if (search) {
+                    const idMatch = String(o.Order_Id).toLowerCase().includes(search);
+                    const emailMatch = (o.cust_email || '').toLowerCase().includes(search);
+                    if (!idMatch && !emailMatch) return false;
+                }
+                return true;
+            });
+        }
+
+        function renderTable(list) {
+            const tbody = document.getElementById('orders-tbody');
+            if (!list.length) {
+                tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><p>No orders found matching your filters.</p></div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.map((order) => {
+                const oid = order.Order_Id || order._id;
+                const padded = String(oid).padStart(5, '0');
+                const st = order.Order_Status || 'pending';
+                const stLabel = st.replace(/_/g, ' ');
+                return `<tr>
+                    <td><span class="order-id">#${escapeHtml(padded)}</span></td>
+                    <td>
+                        <div style="font-weight:600;">${escapeHtml((order.cust_fname||'')+' '+(order.cust_lname||''))}</div>
+                        <div style="font-size:12px;color:#64748b;">${escapeHtml(order.cust_email||'')}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:600;">${escapeHtml(order.Merch_Name||'No Store')}</div>
+                        <div style="font-size:12px;color:#64748b;">${escapeHtml((order.Sellr_Fname||'')+' '+(order.Sellr_Lname||''))}</div>
+                    </td>
+                    <td>${order.rider_name ? `<div style="font-weight:600;">${escapeHtml(order.rider_name)}</div>` : '<span style="color:#94a3b8;font-style:italic;">Not Assigned</span>'}</td>
+                    <td><span class="price-tag">${formatMoney(order.Order_Total)}</span></td>
+                    <td><span class="status-pill status-${escapeHtml(st)}">${escapeHtml(stLabel)}</span></td>
+                    <td>${escapeHtml(formatDate(order.Order_Date, { year: undefined }))}</td>
+                    <td>
+                        <select class="actions-select" data-order-id="${escapeHtml(oid)}">
+                            <option value="" disabled selected>Change Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="preparing">Preparing</option>
+                            <option value="on_the_way">On the Way</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            tbody.querySelectorAll('.actions-select').forEach((sel) => {
+                sel.addEventListener('change', async () => {
+                    if (!sel.value) return;
+                    const id = sel.dataset.orderId;
+                    try {
+                        await updateRecord('orders', id, { Order_Status: sel.value });
+                        const row = enrichedOrders.find((o) => String(o.Order_Id || o._id) === String(id));
+                        if (row) row.Order_Status = sel.value;
+                        showAlert('alert-box', 'Order status updated.', 'success');
+                        renderTable(applyFilters());
+                    } catch (e) {
+                        showAlert('alert-box', 'Failed to update order.', 'error');
+                    }
+                });
+            });
+        }
+
+        document.getElementById('filters-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            renderTable(applyFilters());
+        });
+
+        ['status', 'search', 'seller', 'rider'].forEach((key) => {
+            const el = document.getElementById(`filter-${key}`);
+            const param = getQueryParam(key === 'status' ? 'status' : key);
+            if (param) el.value = param;
+        });
+
+        const orders = await getAll('orders');
+        orders.sort((a, b) => new Date(b.Order_Date || 0) - new Date(a.Order_Date || 0));
+        enrichedOrders = await Promise.all(orders.map(enrichOrder));
+        renderTable(applyFilters());
+    </script>
+</body>
+</html>

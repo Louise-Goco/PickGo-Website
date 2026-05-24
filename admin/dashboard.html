@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .dashboard-container { max-width: 100%; margin: 0 auto; padding: 40px 20px; }
+        .welcome-section { margin-top: 40px; color: #0f172a; }
+        .welcome-section h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+        .welcome-section p { color: #64748b; font-size: 16px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-top: 30px; }
+        .stat-card { background: #ffffff; border: 1px solid rgba(0,0,0,0.05); border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .stat-card h3 { color: #64748b; font-size: 14px; font-weight: 600; text-transform: uppercase; margin-bottom: 12px; }
+        .stat-card .value { font-size: 28px; font-weight: 800; color: #0f172a; }
+        .stat-card .trend { font-size: 13px; margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+        .trend.up { color: #10b981; }
+        .admin-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-top: 40px; }
+        .admin-card { background: #ffffff; border: 1px solid rgba(0,0,0,0.05); border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); transition: transform 0.2s; }
+        .admin-card:hover { transform: translateY(-4px); }
+        .admin-card h3 { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+        .admin-card p { color: #64748b; font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
+        .admin-link { color: #f97316; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .admin-link:hover { text-decoration: underline; }
+        .alerts-section { margin-top: 40px; background: #fff; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .alerts-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .alerts-header h2 { font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; }
+        .alert-item { display: flex; align-items: flex-start; gap: 16px; padding: 16px; border-radius: 12px; background: #f8fafc; margin-bottom: 12px; border: 1px solid transparent; }
+        .alert-item.warning { border-color: #fef9c3; background: #fffbeb; }
+        .alert-content h4 { margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #0f172a; }
+        .alert-content p { margin: 0; font-size: 14px; color: #64748b; }
+        .alert-time { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div id="admin-nav-root"></div>
+    <div class="dashboard-container">
+        <div id="alert-box" style="display:none;"></div>
+
+        <div class="welcome-section">
+            <h1>Admin Dashboard</h1>
+            <p>Welcome back, <span id="admin-name">Admin</span>. Here's what's happening today.</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Users</h3>
+                <div class="value" id="stat-total-users">—</div>
+            </div>
+            <div class="stat-card">
+                <h3>Pending Approvals</h3>
+                <div class="value" id="stat-pending">—</div>
+                <div class="trend" style="color: #f97316;">Requires attention</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active Sellers</h3>
+                <div class="value" id="stat-active-sellers">—</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active Riders</h3>
+                <div class="value" id="stat-active-riders">—</div>
+            </div>
+            <div class="stat-card">
+                <h3>Today's Revenue</h3>
+                <div class="value" id="stat-revenue">—</div>
+            </div>
+        </div>
+
+        <div class="admin-sections">
+            <div class="admin-card">
+                <h3>User Management</h3>
+                <p>View, edit, and manage all customer and admin accounts. Control permissions and account status.</p>
+                <a href="manage_customers.html" class="admin-link">Manage Users &rarr;</a>
+            </div>
+            <div class="admin-card">
+                <h3>Seller Management</h3>
+                <p>Approve new seller applications, manage merchant profiles, suspend accounts, and monitor compliance.</p>
+                <a href="manage_sellers.html" class="admin-link">Manage Sellers &rarr;</a>
+            </div>
+            <div class="admin-card">
+                <h3>Rider Management</h3>
+                <p>Verify rider documents, approve applications, monitor delivery performance, and manage status.</p>
+                <a href="manage_riders.html" class="admin-link">Manage Riders &rarr;</a>
+            </div>
+            <div class="admin-card">
+                <h3>Product Management</h3>
+                <p>Review new product submissions from sellers. Approve or reject items for the public marketplace.</p>
+                <a href="manage_products.html" class="admin-link">Manage Products &rarr;</a>
+            </div>
+            <div class="admin-card">
+                <h3>System Settings</h3>
+                <p>Configure platform-wide settings, payment methods, delivery fees, and promo codes.</p>
+                <a href="settings.html" class="admin-link">Global Settings &rarr;</a>
+            </div>
+        </div>
+
+        <div class="alerts-section">
+            <div class="alerts-header">
+                <h2>System Alerts</h2>
+            </div>
+            <div id="pending-alert" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { requireAdmin } from '../js/guard.js';
+        import { renderAdminNav } from '../js/nav-admin.js';
+        import { getAll } from '../js/db.js';
+        import { escapeHtml, formatMoney, formatDate } from '../js/utils.js';
+
+        const ctx = await requireAdmin();
+        if (!ctx) throw new Error('Unauthorized');
+        await renderAdminNav();
+
+        const adminName = ctx.user?.first_name || ctx.session?.user || 'Admin';
+        document.getElementById('admin-name').textContent = adminName;
+
+        const [users, sellers, riders, items, orders] = await Promise.all([
+            getAll('users'),
+            getAll('sellers'),
+            getAll('riders'),
+            getAll('items'),
+            getAll('orders'),
+        ]);
+
+        const totalUsers = users.length + sellers.length + riders.length;
+        const pendingApprovals =
+            users.filter((u) => !u.is_verified).length +
+            sellers.filter((s) => s.Sellr_Status === 'pending').length +
+            riders.filter((r) => r.Rider_Status === 'pending').length +
+            items.filter((i) => i.Item_Status === 'pending').length;
+        const activeSellers = sellers.filter((s) => s.Sellr_Status === 'active').length;
+        const activeRiders = riders.filter((r) => r.Rider_Status === 'active').length;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayRevenue = orders
+            .filter((o) => {
+                if (o.Order_Status !== 'delivered') return false;
+                const d = new Date(o.Order_Date);
+                return !Number.isNaN(d.getTime()) && d >= today;
+            })
+            .reduce((sum, o) => sum + Number(o.Order_Total || 0), 0);
+
+        document.getElementById('stat-total-users').textContent = totalUsers.toLocaleString();
+        document.getElementById('stat-pending').textContent = pendingApprovals.toLocaleString();
+        document.getElementById('stat-active-sellers').textContent = activeSellers.toLocaleString();
+        document.getElementById('stat-active-riders').textContent = activeRiders.toLocaleString();
+        document.getElementById('stat-revenue').textContent = formatMoney(todayRevenue);
+
+        const pendingEntries = [
+            ...sellers.filter((s) => s.Sellr_Status === 'pending').map((s) => ({
+                type: 'seller',
+                fname: s.Sellr_Fname,
+                lname: s.Sellr_Lname,
+                date: s.Sellr_DateCreated || s.created_at,
+            })),
+            ...riders.filter((r) => r.Rider_Status === 'pending').map((r) => ({
+                type: 'rider',
+                fname: r.Rider_Fname,
+                lname: r.Rider_Lname,
+                date: r.created_at,
+            })),
+            ...items.filter((i) => i.Item_Status === 'pending').map((i) => ({
+                type: 'product',
+                fname: i.Item_Name,
+                lname: '',
+                date: i.created_at,
+            })),
+        ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+        const latest = pendingEntries[0];
+        if (latest) {
+            const el = document.getElementById('pending-alert');
+            el.style.display = 'block';
+            el.innerHTML = `
+                <div class="alert-item warning">
+                    <div class="alert-content">
+                        <h4>New ${escapeHtml(latest.type.charAt(0).toUpperCase() + latest.type.slice(1))} Application</h4>
+                        <p>${escapeHtml([latest.fname, latest.lname].filter(Boolean).join(' '))} has submitted a new application for approval.</p>
+                        <div class="alert-time">${escapeHtml(formatDate(latest.date, { year: undefined }))}</div>
+                    </div>
+                </div>`;
+        }
+    </script>
+</body>
+</html>

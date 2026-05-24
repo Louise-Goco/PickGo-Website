@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Admin User - PickGo</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 480px; margin: 60px auto; padding: 24px; }
+        .card { background: #f8fafc; border-radius: 16px; padding: 24px; border: 1px solid #e2e8f0; }
+        button { width: 100%; padding: 14px; background: #f97316; color: #fff; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; margin-top: 16px; }
+        #msg { margin-top: 16px; padding: 12px; border-radius: 8px; display: none; }
+        .ok { background: #dcfce7; color: #166534; }
+        .err { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1 style="margin:0 0 8px;font-size:20px;">Create Admin User</h1>
+        <p style="color:#64748b;margin:0 0 16px;font-size:14px;">Adds <strong>admin@gmail.com</strong> to Firestore <code>users</code> with role <code>admin</code>.</p>
+        <p style="font-size:13px;margin:0;"><strong>Email:</strong> admin@gmail.com<br><strong>Password:</strong> admin123</p>
+        <button type="button" id="btn">Create / Update Admin</button>
+        <div id="msg"></div>
+    </div>
+    <script type="module">
+        import { hashPassword } from './js/bcrypt-util.js';
+        import { queryOne, addRecord, updateRecord } from './js/db.js';
+        import { nowIso } from './js/utils.js';
+
+        const EMAIL = 'admin@gmail.com';
+        const PASSWORD = 'admin123';
+
+        function show(text, ok) {
+            const el = document.getElementById('msg');
+            el.textContent = text;
+            el.className = ok ? 'ok' : 'err';
+            el.style.display = 'block';
+        }
+
+        document.getElementById('btn').onclick = async () => {
+            const btn = document.getElementById('btn');
+            btn.disabled = true;
+            try {
+                const hashed = await hashPassword(PASSWORD);
+                const data = {
+                    first_name: 'Admin',
+                    last_name: 'User',
+                    email: EMAIL,
+                    phone_number: '09000000000',
+                    password: hashed,
+                    user_type: 'admin',
+                    account_status: 'active',
+                    is_verified: true,
+                    profile_photo: null,
+                    created_at: nowIso(),
+                };
+                const existing = await queryOne('users', 'email', EMAIL);
+                if (existing) {
+                    await updateRecord('users', existing._id, data);
+                    show(`Updated admin user (id: ${existing._id}). You can log in at login.html.`, true);
+                } else {
+                    const id = await addRecord('users', data);
+                    show(`Created admin user (id: ${id}). You can log in at login.html.`, true);
+                }
+            } catch (e) {
+                show('Error: ' + (e.message || e), false);
+            }
+            btn.disabled = false;
+        };
+    </script>
+</body>
+</html>

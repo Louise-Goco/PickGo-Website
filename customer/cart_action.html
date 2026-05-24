@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Updating Cart…</title>
+</head>
+<body>
+    <p style="font-family:Inter,sans-serif;text-align:center;margin-top:40px;color:#64748b;">Updating cart…</p>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { requireCustomer } from '../js/guard.js';
+        import {
+            addToCart,
+            updateCartItem,
+            removeFromCart,
+            applyPromo,
+            removePromo,
+        } from '../js/cart.js';
+        import { getSession, setSession } from '../js/session.js';
+
+        const ctx = await requireCustomer();
+        if (!ctx) throw new Error('Unauthorized');
+
+        const params = new URLSearchParams(window.location.search);
+        const action = params.get('action') || '';
+        const itemId = params.get('item_id');
+        const redirect = (params.get('redirect') || 'cart.html').replace(/\.php(\?|$)/, '.html$1');
+
+        if (action === 'add') {
+            await addToCart(itemId, Number(params.get('quantity') || 1));
+        } else if (action === 'update') {
+            await updateCartItem(itemId, Number(params.get('change') || 0));
+        } else if (action === 'remove') {
+            await removeFromCart(itemId);
+        } else if (action === 'apply_promo') {
+            const result = await applyPromo(params.get('promo_code'));
+            if (!result.ok) setSession({ promo_err: result.error, promo_msg: null });
+        } else if (action === 'remove_promo') {
+            await removePromo();
+        }
+
+        window.location.href = redirect;
+    </script>
+</body>
+</html>

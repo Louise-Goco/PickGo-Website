@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Earnings - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        .earnings-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 32px; }
+        .card { background: #fff; border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); padding: 32px; margin-bottom: 32px; }
+        .balance-card { background: #0f172a; color: #fff; border: none; }
+        .balance-value { font-size: 40px; font-weight: 800; color: #f97316; margin-bottom: 8px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 14px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; }
+        .btn-request { width: 100%; padding: 14px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; }
+        .history-table { width: 100%; border-collapse: collapse; }
+        .history-table th { text-align: left; padding: 12px; font-size: 12px; color: #94a3b8; text-transform: uppercase; border-bottom: 1px solid #f1f5f9; }
+        .history-table td { padding: 16px 12px; font-size: 14px; border-bottom: 1px solid #f8fafc; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+        .badge-pending { background: #fef9c3; color: #854d0e; }
+        .badge-approved { background: #e0f2fe; color: #0369a1; }
+        .badge-processed { background: #f0fdf4; color: #166534; }
+        .badge-rejected { background: #fef2f2; color: #991b1b; }
+        @media (max-width: 900px) { .earnings-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <div id="seller-nav-root"></div>
+        <main class="main-content">
+            <div style="margin-bottom: 32px;">
+                <h1 style="font-size: 28px; font-weight: 700;">Earnings & Payouts</h1>
+                <p style="color: #64748b;">Manage your wallet, view transactions, and request bank transfers.</p>
+            </div>
+            <div id="alert-box"></div>
+            <div class="earnings-grid">
+                <div>
+                    <div class="card balance-card">
+                        <h3 style="color:#94a3b8;">Available Balance</h3>
+                        <div class="balance-value" id="balance-value">…</div>
+                        <p style="font-size:14px;color:#94a3b8;">Total Earned: <span id="total-earned">…</span></p>
+                    </div>
+                    <div class="card">
+                        <h3 style="margin-bottom:24px;">Request Payout</h3>
+                        <form id="payout-form">
+                            <div class="form-group"><label>Amount to Withdraw (₱)</label><input type="number" name="amount" id="amount" step="0.01" required></div>
+                            <div class="form-group"><label>Bank Name</label><input type="text" name="bank_name" id="bank_name" required></div>
+                            <div class="form-group"><label>Account Name</label><input type="text" name="account_name" id="account_name" required></div>
+                            <div class="form-group"><label>Account Number</label><input type="text" name="account_number" id="account_number" required></div>
+                            <button type="submit" class="btn-request">Withdraw Funds</button>
+                        </form>
+                    </div>
+                </div>
+                <div>
+                    <div class="card"><h3 style="margin-bottom:24px;">Payout History</h3><div id="payout-history"></div></div>
+                    <div class="card"><h3 style="margin-bottom:24px;">Recent Earnings</h3><div id="recent-earnings"></div></div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { requireSeller } from '../js/guard.js';
+        import { getSellerByStoreEmail, queryWhere, addRecord } from '../js/db.js';
+        import { renderSellerNav } from '../js/nav-seller.js';
+        import { escapeHtml, formatMoney, showAlert, nowIso } from '../js/utils.js';
+
+        let seller_id = null;
+        let available_balance = 0;
+
+        function orderId(o) { return o.Order_Id || o._id; }
+
+        async function loadData() {
+            const orders = await queryWhere('orders', 'Seller_Id', '==', seller_id);
+            const payouts = (await queryWhere('payouts', 'User_Type', '==', 'seller')).filter(
+                (p) => String(p.User_Id) === String(seller_id)
+            );
+
+            const total_earned = orders
+                .filter((o) => o.Order_Status === 'delivered')
+                .reduce((s, o) => s + Number(o.Order_Total || 0), 0);
+            const total_requested = payouts
+                .filter((p) => p.Payout_Status !== 'rejected')
+                .reduce((s, p) => s + Number(p.Amount || 0), 0);
+            available_balance = total_earned - total_requested;
+
+            document.getElementById('balance-value').textContent = formatMoney(available_balance);
+            document.getElementById('total-earned').textContent = formatMoney(total_earned);
+            document.getElementById('amount').max = available_balance;
+
+            payouts.sort((a, b) => new Date(b.Request_Date || 0) - new Date(a.Request_Date || 0));
+            document.getElementById('payout-history').innerHTML = payouts.length
+                ? `<table class="history-table"><thead><tr><th>Date</th><th>Amount</th><th>Bank</th><th>Status</th></tr></thead><tbody>${payouts
+                      .map((p) => {
+                          const dt = p.Request_Date ? new Date(p.Request_Date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+                          return `<tr><td>${escapeHtml(dt)}</td><td style="font-weight:700;">${formatMoney(p.Amount)}</td><td>${escapeHtml(p.Bank_Name || '')}</td><td><span class="badge badge-${p.Payout_Status}">${escapeHtml(p.Payout_Status)}</span></td></tr>`;
+                      })
+                      .join('')}</tbody></table>`
+                : '<p style="color:#94a3b8;text-align:center;padding:20px;">No payout requests yet.</p>';
+
+            const recent = orders
+                .filter((o) => o.Order_Status === 'delivered')
+                .sort((a, b) => new Date(b.Order_Date || 0) - new Date(a.Order_Date || 0))
+                .slice(0, 10);
+            document.getElementById('recent-earnings').innerHTML = recent.length
+                ? `<table class="history-table"><thead><tr><th>Order ID</th><th>Date</th><th>Amount</th></tr></thead><tbody>${recent
+                      .map((t) => {
+                          const dt = t.Order_Date ? new Date(t.Order_Date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+                          return `<tr><td>#${escapeHtml(orderId(t))}</td><td>${escapeHtml(dt)}</td><td style="color:#10b981;font-weight:700;">+${formatMoney(t.Order_Total)}</td></tr>`;
+                      })
+                      .join('')}</tbody></table>`
+                : '<p style="color:#94a3b8;text-align:center;padding:20px;">No earnings recorded yet.</p>';
+        }
+
+        async function init() {
+            const auth = await requireSeller();
+            if (!auth) return;
+            const ctx = await getSellerByStoreEmail(auth.session.user);
+            if (!ctx || ctx.seller.Sellr_Status !== 'active') {
+                window.location.href = '../login.html';
+                return;
+            }
+            renderSellerNav('payouts');
+            seller_id = auth.session.seller_id || ctx.seller._id;
+            await loadData();
+
+            document.getElementById('payout-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const amount = Number(document.getElementById('amount').value);
+                const bank_name = document.getElementById('bank_name').value.trim();
+                const account_name = document.getElementById('account_name').value.trim();
+                const account_number = document.getElementById('account_number').value.trim();
+                if (amount <= 0) {
+                    showAlert('alert-box', 'Invalid amount.', 'error');
+                    return;
+                }
+                if (amount > available_balance) {
+                    showAlert('alert-box', 'Insufficient balance.', 'error');
+                    return;
+                }
+                if (!bank_name || !account_number || !account_name) {
+                    showAlert('alert-box', 'All bank details are required.', 'error');
+                    return;
+                }
+                await addRecord('payouts', {
+                    User_Type: 'seller',
+                    User_Id: seller_id,
+                    Amount: amount,
+                    Bank_Name: bank_name,
+                    Account_Number: account_number,
+                    Account_Name: account_name,
+                    Payout_Status: 'pending',
+                    Request_Date: nowIso(),
+                });
+                showAlert('alert-box', 'Payout request submitted successfully!', 'success');
+                await loadData();
+            };
+        }
+        init();
+    </script>
+</body>
+</html>

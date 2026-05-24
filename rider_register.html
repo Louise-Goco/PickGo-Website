@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drive with us - Pickaroo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="login.css">
+    <style>
+        .login-container.register-rider { max-width: 600px; }
+        .form-section h3 { font-size: 18px; font-weight: 600; color: #0f172a; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .step-indicator { display: flex; gap: 8px; margin-bottom: 28px; }
+        .step-dot { flex: 1; text-align: center; padding: 10px 8px; border-radius: 10px; background: #f1f5f9; color: #64748b; font-size: 12px; font-weight: 600; }
+        .step-dot.active { background: #ecfdf5; color: #10b981; border: 1px solid #bbf7d0; }
+        .step-dot.done { background: #f0fdf4; color: #166534; }
+        .step-panel { display: none; }
+        .step-panel.active { display: block; }
+        .step-actions { display: flex; gap: 12px; margin-top: 24px; }
+        .btn-secondary { padding: 14px 24px; border-radius: 12px; border: 1px solid #e2e8f0; background: #fff; font-weight: 600; cursor: pointer; }
+        .success-message { background: #f0fdf4; color: #166534; padding: 16px; border-radius: 12px; margin-bottom: 24px; border: 1px solid #dcfce7; }
+        @media (max-width: 480px) { .input-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="background-elements">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2" style="background: #10b981;"></div>
+    </div>
+
+    <div class="login-container register-rider">
+        <div class="glass-panel">
+            <a href="index.html" class="back-home-btn" title="Back to Homepage">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </a>
+            <div class="login-header">
+                <h2>Drive with PickGo</h2>
+                <p>Deliver food and earn on your own schedule.</p>
+            </div>
+
+            <div id="errorBox" class="error-message" style="display: none;"><span id="errorText"></span></div>
+
+            <div id="pendingView" style="display: none; text-align: center; padding: 40px 0;">
+                <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 12px;">Application Pending</h3>
+                <p style="color: #64748b; margin-bottom: 32px;">Your application to join our delivery fleet is being reviewed.</p>
+                <a href="customer/dashboard.html" class="submit-btn" style="text-decoration: none; display: inline-flex; background: #10b981;">Go to Customer Dashboard</a>
+            </div>
+
+            <div id="successView" style="display: none;">
+                <div class="success-message">Application submitted! Please wait for admin approval.</div>
+                <div style="text-align: center;">
+                    <a href="login.html" class="submit-btn" style="text-decoration: none; display: inline-flex;">Return to Dashboard</a>
+                </div>
+            </div>
+
+            <form id="riderForm" class="login-form" style="display: none;">
+                <div class="step-indicator">
+                    <div class="step-dot active" data-step="0">1. Personal</div>
+                    <div class="step-dot" data-step="1">2. Vehicle</div>
+                    <div class="step-dot" data-step="2">3. Documents</div>
+                </div>
+
+                <div class="step-panel active" data-step="0">
+                    <div class="form-section"><h3>Personal Information</h3>
+                        <div class="input-grid">
+                            <div class="input-group"><label>First Name</label><div class="input-wrapper"><input type="text" name="fname" required></div></div>
+                            <div class="input-group"><label>Last Name</label><div class="input-wrapper"><input type="text" name="lname" required></div></div>
+                        </div>
+                        <div class="input-group"><label>Email Address</label><div class="input-wrapper"><input type="email" name="email" required></div></div>
+                        <div class="input-group"><label>Phone Number</label><div class="input-wrapper"><input type="tel" name="phone" required></div></div>
+                    </div>
+                </div>
+
+                <div class="step-panel" data-step="1">
+                    <div class="form-section"><h3>Vehicle &amp; License</h3>
+                        <div class="input-group"><label>Vehicle Type</label><div class="input-wrapper"><select name="vehicle_type" required><option value="">Select Type</option><option>Bicycle</option><option>Motorcycle</option><option>Car</option></select></div></div>
+                        <div class="input-grid">
+                            <div class="input-group"><label>Plate Number</label><div class="input-wrapper"><input type="text" name="plate_number" required></div></div>
+                            <div class="input-group"><label>License Number</label><div class="input-wrapper"><input type="text" name="license_number" required></div></div>
+                        </div>
+                        <div class="input-grid">
+                            <div class="input-group"><label>Password</label><div class="input-wrapper"><input type="password" name="password" required></div></div>
+                            <div class="input-group"><label>Confirm Password</label><div class="input-wrapper"><input type="password" name="confirm_password" required></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-panel" data-step="2">
+                    <div class="form-section"><h3>Required Documents</h3>
+                        <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">Upload clear photos (JPG or PNG). Each file is compressed automatically.</p>
+                        <div class="input-group"><label>Driver's License</label><div class="input-wrapper"><input type="file" name="license_photo" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required style="padding:10px;"></div></div>
+                        <div class="input-group"><label>NBI Clearance</label><div class="input-wrapper"><input type="file" name="nbi" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required style="padding:10px;"></div></div>
+                        <div class="input-group"><label>Official Receipt (OR)</label><div class="input-wrapper"><input type="file" name="or" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required style="padding:10px;"></div></div>
+                        <div class="input-group"><label>Certificate of Registration (CR)</label><div class="input-wrapper"><input type="file" name="cr" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required style="padding:10px;"></div></div>
+                    </div>
+                </div>
+
+                <div class="step-actions">
+                    <button type="button" class="btn-secondary" id="prevBtn" style="display:none;">Back</button>
+                    <button type="button" class="submit-btn" id="nextBtn" style="background:#10b981;"><span>Next</span></button>
+                    <button type="submit" class="submit-btn" id="submitBtn" style="display:none;background:#10b981;"><span>Join the Fleet</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module" src="./js/rider-register-page.js"></script>
+</body>
+</html>

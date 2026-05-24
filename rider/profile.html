@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rider Profile - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        :root { --primary: #10b981; --bg: #f8fafc; }
+        body { background: var(--bg); font-family: 'Inter', sans-serif; }
+        .container { max-width: 800px; }
+        .card { background: #fff; padding: 32px; border-radius: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px; }
+        .profile-header { display: flex; align-items: center; gap: 24px; margin-bottom: 32px; }
+        .profile-photo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; background: #e2e8f0; border: 4px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .form-section { margin-bottom: 32px; }
+        .form-section h3 { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-size: 14px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
+        .input-wrapper input, .input-wrapper select { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; font-family: inherit; font-size: 14px; box-sizing: border-box; }
+        .input-wrapper input:focus, .input-wrapper select:focus { border-color: var(--primary); outline: none; }
+        .btn-save { background: var(--primary); color: #fff; border: none; padding: 16px 32px; border-radius: 12px; font-weight: 700; cursor: pointer; width: 100%; }
+        .btn-save:hover { background: #059669; }
+        .alert { padding: 16px; border-radius: 12px; margin-bottom: 24px; font-weight: 500; }
+        .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div id="rider-nav-root"></div>
+    <main class="main-content">
+        <div class="container">
+            <h1 style="font-size: 24px; font-weight: 800; margin-bottom: 32px;">Profile Settings</h1>
+            <div id="alert-box"></div>
+            <form id="profile-form" class="card">
+                <div class="profile-header">
+                    <img src="../uploads/default_avatar.png" alt="Profile" class="profile-photo" id="photo-preview">
+                    <div>
+                        <h2 id="rider-name" style="font-size: 18px; font-weight: 700;"></h2>
+                        <p id="rider-email" style="color: #64748b; font-size: 14px; margin-bottom: 12px;"></p>
+                        <input type="file" id="photo-input" accept="image/*" style="display: none;">
+                        <button type="button" id="photo-btn" style="background: #f1f5f9; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; color: #475569;">Change Photo</button>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Vehicle Information</h3>
+                    <div class="grid">
+                        <div class="input-group">
+                            <label>Vehicle Type</label>
+                            <div class="input-wrapper">
+                                <select name="vehicle_type" id="vehicle_type" required>
+                                    <option value="Bicycle">Bicycle</option>
+                                    <option value="Motorcycle">Motorcycle</option>
+                                    <option value="Car">Car</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Plate Number</label>
+                            <div class="input-wrapper">
+                                <input type="text" name="plate_number" id="plate_number" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Bank Account Info</h3>
+                    <div class="input-group">
+                        <label>Bank Name</label>
+                        <div class="input-wrapper">
+                            <select name="bank_name" id="bank_name" required>
+                                <option value="" disabled>Select Bank / E-Wallet</option>
+                                <option value="GCash">GCash</option>
+                                <option value="Maya">Maya</option>
+                                <option value="BDO Unibank">BDO Unibank</option>
+                                <option value="BPI">Bank of the Philippine Islands (BPI)</option>
+                                <option value="UnionBank">UnionBank of the Philippines</option>
+                                <option value="Metrobank">Metrobank</option>
+                                <option value="LandBank">LandBank of the Philippines</option>
+                                <option value="Security Bank">Security Bank</option>
+                                <option value="RCBC">RCBC</option>
+                                <option value="PNB">Philippine National Bank (PNB)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div class="input-group">
+                            <label>Account Number</label>
+                            <div class="input-wrapper">
+                                <input type="text" name="bank_acc_no" id="bank_acc_no" placeholder="Enter account number">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Account Name</label>
+                            <div class="input-wrapper">
+                                <input type="text" name="bank_acc_name" id="bank_acc_name" placeholder="Enter account name">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-save">Save Changes</button>
+            </form>
+        </div>
+    </main>
+
+    <script type="module">
+        import { requireRider } from '../js/guard.js';
+        import { renderRiderNav } from '../js/nav-rider.js';
+        import { queryOne, updateRecord } from '../js/db.js';
+        import { imgUrl } from '../js/utils.js';
+
+        let rider = null;
+        let riderId = null;
+        let photoData = null;
+
+        function showAlert(msg, type = 'success') {
+            const box = document.getElementById('alert-box');
+            if (!msg) { box.innerHTML = ''; return; }
+            box.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function fillForm() {
+            document.getElementById('rider-name').textContent = `${rider.Rider_Fname || ''} ${rider.Rider_Lname || ''}`.trim();
+            document.getElementById('rider-email').textContent = rider.Rider_Email || '';
+            document.getElementById('photo-preview').src = imgUrl(rider.Rider_Photo, '../uploads/default_avatar.png');
+            document.getElementById('vehicle_type').value = rider.Rider_VehicleType || 'Motorcycle';
+            document.getElementById('plate_number').value = rider.Rider_PlateNumber || '';
+            document.getElementById('bank_name').value = rider.Rider_BankName || '';
+            document.getElementById('bank_acc_no').value = rider.Rider_BankAccNo || '';
+            document.getElementById('bank_acc_name').value = rider.Rider_BankAccName || '';
+        }
+
+        async function init() {
+            const auth = await requireRider();
+            if (!auth) return;
+            renderRiderNav('profile');
+
+            rider = await queryOne('riders', 'Rider_Email', auth.session.user);
+            if (!rider) {
+                window.location.href = '../login.html';
+                return;
+            }
+            riderId = auth.session.rider_id || rider._id;
+            fillForm();
+
+            document.getElementById('bank_name').addEventListener('change', (e) => {
+                if (e.target.value === 'GCash') {
+                    document.getElementById('bank_acc_no').value = rider.Rider_Phone || '';
+                }
+            });
+
+            document.getElementById('photo-btn').addEventListener('click', () => document.getElementById('photo-input').click());
+            document.getElementById('photo-input').addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                photoData = await readFileAsDataUrl(file);
+                document.getElementById('photo-preview').src = photoData;
+            });
+
+            document.getElementById('profile-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const patch = {
+                    Rider_VehicleType: document.getElementById('vehicle_type').value,
+                    Rider_PlateNumber: document.getElementById('plate_number').value.trim(),
+                    Rider_BankName: document.getElementById('bank_name').value,
+                    Rider_BankAccNo: document.getElementById('bank_acc_no').value.trim(),
+                    Rider_BankAccName: document.getElementById('bank_acc_name').value.trim(),
+                };
+                if (photoData) patch.Rider_Photo = photoData;
+                try {
+                    await updateRecord('riders', riderId, patch);
+                    Object.assign(rider, patch);
+                    showAlert('Profile updated successfully!', 'success');
+                } catch (err) {
+                    showAlert('Failed to update profile.', 'error');
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

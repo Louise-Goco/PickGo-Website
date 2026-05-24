@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store - PickGo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../login.css">
+    <style>
+        body { background: #f8fafc; }
+        .content-container { max-width: 1100px; margin: 0 auto 60px; padding: 0 40px; }
+        .store-banner-container { width: 100%; height: 280px; overflow: hidden; background: #e2e8f0; border-radius: 32px; margin-top: 20px; }
+        .store-banner { width: 100%; height: 100%; object-fit: cover; }
+        .store-profile-header { display: flex; align-items: flex-end; gap: 32px; padding: 32px 0; border-bottom: 1px solid rgba(0,0,0,0.05); margin-bottom: 40px; }
+        .store-logo-main { width: 130px; height: 130px; border-radius: 32px; border: 1px solid #e2e8f0; background: #fff; object-fit: cover; }
+        .store-title-text { font-size: 34px; font-weight: 850; color: #0f172a; margin: 0 0 12px 0; }
+        .store-meta-tags { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .badge-tag { padding: 8px 16px; border-radius: 12px; font-size: 13px; font-weight: 700; background: #fff; color: #475569; border: 1px solid #e2e8f0; }
+        .badge-primary { background: #f97316; color: #fff; border-color: #f97316; }
+        .store-description { background: #fff; padding: 32px; border-radius: 24px; border: 1px solid rgba(0,0,0,0.03); margin-bottom: 40px; }
+        .category-scroll-wrapper { position: sticky; top: 75px; background: #f8fafc; z-index: 100; margin: 0 -40px 32px; padding: 12px 40px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .category-nav { display: flex; gap: 8px; overflow-x: auto; }
+        .category-link { padding: 10px 18px; border-radius: 12px; color: #64748b; text-decoration: none; font-weight: 600; font-size: 14px; white-space: nowrap; background: #fff; border: 1px solid #e2e8f0; }
+        .category-link.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+        .menu-section { margin-bottom: 60px; scroll-margin-top: 150px; }
+        .section-title { font-size: 24px; font-weight: 800; color: #0f172a; margin-bottom: 30px; }
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
+        .product-card { background: #fff; border-radius: 24px; border: 1px solid rgba(0,0,0,0.03); overflow: hidden; display: flex; flex-direction: column; }
+        .product-image-container { position: relative; height: 200px; }
+        .product-image { width: 100%; height: 100%; object-fit: cover; }
+        .add-quick { position: absolute; bottom: 12px; right: 12px; width: 44px; height: 44px; border-radius: 14px; background: #f97316; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .product-info { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; }
+        .product-name { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+        .product-desc { font-size: 14px; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
+        .product-price { font-size: 20px; font-weight: 800; color: #0f172a; margin-top: auto; }
+    </style>
+</head>
+<body>
+    <div id="customer-nav-root"></div>
+    <div class="content-container" id="store-root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script type="module">
+        import { renderCustomerNav } from '../js/nav-customer.js';
+        import { getById, queryWhere, getAll } from '../js/db.js';
+        import { addToCart } from '../js/cart.js';
+        import { escapeHtml, formatMoney, imgUrl, getQueryParam, promptLoginForCart } from '../js/utils.js';
+        import { getSession } from '../js/session.js';
+
+        await renderCustomerNav();
+
+        const merchId = getQueryParam('id');
+        if (!merchId) { location.href = 'browse_stores.html'; throw new Error('missing id'); }
+
+        let merchant = await getById('merchants', merchId);
+        if (!merchant) {
+            const rows = await queryWhere('merchants', 'Merch_Id', '==', merchId);
+            merchant = rows[0];
+        }
+        if (!merchant || merchant.Merch_Status !== 'active') {
+            location.href = 'browse_stores.html';
+            throw new Error('not found');
+        }
+
+        const merchKey = merchant._id || merchant.Merch_Id;
+        const allSellers = await getAll('sellers');
+        const sellers = allSellers.filter((s) => String(s.Merch_Id) === String(merchKey));
+        const sellerIds = new Set();
+        sellers.forEach((s) => {
+            sellerIds.add(String(s._id));
+            if (s.Seller_Id != null) sellerIds.add(String(s.Seller_Id));
+        });
+        const categories = await getAll('categories');
+        const catMap = Object.fromEntries(categories.map((c) => [String(c._id || c.Categ_Id), c.Categ_Name]));
+
+        const allItems = await getAll('items');
+        const items = allItems.filter((i) =>
+            i.Item_Status === 'available' && sellerIds.has(String(i.Seller_Id))
+        );
+
+        const grouped = {};
+        items.forEach((item) => {
+            const cat = catMap[String(item.Item_Category)] || 'General';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(item);
+        });
+
+        document.title = `${merchant.Merch_Name} - PickGo`;
+        const DEFAULT_BANNER = 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=1200&h=400';
+        const DEFAULT_LOGO = 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&q=80&w=200&h=200';
+        const DEFAULT_FOOD = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400&h=300';
+
+        const open = merchant.Merch_OpeningTime || '08:00';
+        const close = merchant.Merch_ClosingTime || '20:00';
+
+        const root = document.getElementById('store-root');
+        root.innerHTML = `
+            <div class="store-banner-container">
+                <img src="${imgUrl(merchant.Merch_Banner, DEFAULT_BANNER)}" class="store-banner" alt="Banner">
+            </div>
+            <div class="store-profile-header">
+                <img src="${imgUrl(merchant.Merch_Logo, DEFAULT_LOGO)}" class="store-logo-main" alt="Logo">
+                <div>
+                    <h1 class="store-title-text">${escapeHtml(merchant.Merch_Name)}</h1>
+                    <div class="store-meta-tags">
+                        <span class="badge-tag badge-primary">${escapeHtml(merchant.Merch_Type || '')}</span>
+                        <span class="badge-tag">${escapeHtml(String(open).slice(0,5))} - ${escapeHtml(String(close).slice(0,5))}</span>
+                    </div>
+                </div>
+            </div>
+            ${merchant.Merch_Description ? `<div class="store-description"><h3 style="font-size:12px;color:#94a3b8;text-transform:uppercase;">About the Store</h3><p style="color:#475569;line-height:1.7;">${escapeHtml(merchant.Merch_Description)}</p></div>` : ''}
+            <div class="category-scroll-wrapper"><div class="category-nav" id="category-nav"></div></div>
+            <main id="menu-main"></main>`;
+
+        const nav = document.getElementById('category-nav');
+        const catNames = Object.keys(grouped);
+        nav.innerHTML = catNames.map((name) => `<a href="#cat-${btoa(name).replace(/=/g,'')}" class="category-link">${escapeHtml(name)}</a>`).join('');
+
+        const main = document.getElementById('menu-main');
+        if (!catNames.length) {
+            main.innerHTML = '<div style="text-align:center;padding:100px 0;color:#94a3b8;"><h3>No products available in this store yet.</h3></div>';
+        } else {
+            main.innerHTML = catNames.map((name) => {
+                const slug = `cat-${btoa(name).replace(/=/g,'')}`;
+                const cards = grouped[name].map((item) => {
+                    const id = item.Item_Id || item._id;
+                    return `
+                    <div class="product-card">
+                        <div class="product-image-container">
+                            <img src="${imgUrl(item.Item_Image, DEFAULT_FOOD)}" class="product-image" alt="${escapeHtml(item.Item_Name)}">
+                            <button type="button" class="add-quick" data-item-id="${escapeHtml(id)}" title="Add to cart">+</button>
+                        </div>
+                        <div class="product-info">
+                            <h3 class="product-name">${escapeHtml(item.Item_Name)}</h3>
+                            <p class="product-desc">${escapeHtml(item.Item_Description || '')}</p>
+                            <span class="product-price">${formatMoney(item.Item_Price)}</span>
+                        </div>
+                    </div>`;
+                }).join('');
+                return `<section class="menu-section" id="${slug}"><h2 class="section-title">${escapeHtml(name)}</h2><div class="products-grid">${cards}</div></section>`;
+            }).join('');
+
+            main.querySelectorAll('.add-quick').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (!getSession()?.user_id) {
+                        await promptLoginForCart();
+                        return;
+                    }
+                    await addToCart(btn.dataset.itemId, 1);
+                    await renderCustomerNav();
+                });
+            });
+        }
+
+        const sections = document.querySelectorAll('.menu-section');
+        const navLinks = document.querySelectorAll('.category-link');
+        const scrollContainer = document.querySelector('.category-nav');
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach((section) => {
+                if (window.scrollY >= section.offsetTop - 180) current = section.id;
+            });
+            navLinks.forEach((link) => {
+                link.classList.toggle('active', link.getAttribute('href') === `#${current}`);
+                if (link.classList.contains('active') && scrollContainer) {
+                    scrollContainer.scrollTo({ left: link.offsetLeft - 20, behavior: 'smooth' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
